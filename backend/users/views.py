@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect
-from .serializers import UserSerializer,UserProfileUpdateSerializer,CustomTokenObtainPairSerializer
+from .serializers import UserSerializer,UserProfileUpdateSerializer,CustomTokenObtainPairSerializer,UserCreateSerializer
 from rest_framework import viewsets,status
 from .models import Profile
 from django.contrib.auth.decorators import login_required
@@ -11,8 +11,6 @@ from django.contrib.auth import authenticate, login,logout
 from django.contrib import messages
 from django.utils import timezone
 from datetime import timedelta
-from django.urls import reverse
-from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import NotFound
 from rest_framework_simplejwt.views import TokenObtainPairView
 from roles.models import Role
@@ -26,12 +24,23 @@ from django.core.cache import cache
 import json
 
 class userView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
 
     def get(self, request):
         users = Profile.objects.all()
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UserCreateView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = UserCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -58,7 +67,6 @@ class StaffView(APIView):
         serializer = UserSerializer(staff, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
 class ProfileDetailView(APIView):
     def get(self, request, pk):
         profile = Profile.objects.get(id=pk)
@@ -69,10 +77,11 @@ class ProfileDetailView(APIView):
     def put(self, request, pk):
         profile = Profile.objects.get(id=pk)
 
-        serializer = UserSerializer(profile, data=request.data, partial=True)
+        serializer = UserProfileUpdateSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
+        print(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     def delete(self, request, pk):
@@ -84,6 +93,8 @@ class ProfileDetailView(APIView):
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
 class LoginView(APIView): 
+    permission_classes = [AllowAny]
+
     def post(self, request): 
         username = request.data.get('username') 
         password = request.data.get('password') 
@@ -207,12 +218,13 @@ class EnhancedChangePasswordView(APIView):
         else:
             ip = request.META.get('REMOTE_ADDR')
         return ip
-    
-def logout_view(request):
-    logout(request)
-    messages.success(request, 'Logged out successfully')
-    return redirect('login')
 
+class LogoutView(APIView):   
+    permission_classes = [IsAuthenticated] 
+    def post(self, request):
+        logout(request)
+        messages.success(request, 'Logged out successfully')
+        return redirect('login')
 
 class SendResetCodeView(APIView):
     permission_classes = [AllowAny]
@@ -490,4 +502,5 @@ class ResetPasswordView(APIView):
                 recipient_list=[email],
                 fail_silently=False,
             )
-            
+
+        

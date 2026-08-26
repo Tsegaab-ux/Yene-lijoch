@@ -58,12 +58,13 @@ INSTALLED_APPS = [
     "assessments",
     "analytics",
     "notifications",
+    'announcements',
     "churches",
     "classes",
     "lessons",
-    "communications",
     "events",
     "roles",
+    "reports",
     "students",
     "teachers",
     "parents",
@@ -97,6 +98,7 @@ REST_FRAMEWORK = {
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://localhost:8081",
 ]
 
 ROOT_URLCONF = 'backend.urls'
