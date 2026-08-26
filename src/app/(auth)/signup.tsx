@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Signup() {
   const [fullName, setFullName] = useState("");
@@ -23,6 +24,7 @@ export default function Signup() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { register } = useAuth();
 
   const handleSignup = () => {
     if (!fullName || !email || !phone || !password || !confirmPassword) {
