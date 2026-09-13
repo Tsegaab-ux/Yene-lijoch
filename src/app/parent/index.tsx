@@ -159,7 +159,7 @@ export default function ParentHome() {
         <Action
           icon="chatbubble-ellipses-outline"
           label="Teacher"
-          onPress={() => router.push("/parent/notifications")}
+          onPress={() => router.push("/parent/messages")}
         />
       </View>
     </Screen>

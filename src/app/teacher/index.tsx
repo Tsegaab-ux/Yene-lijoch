@@ -2,228 +2,277 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Screen, SectionLabel } from "../../components/teacher/ui";
 import {
-  Screen,
-  TopBar,
-  Card,
-  SectionHeader,
-} from "../../components/parent/ui";
+  ImageSectionCard,
+  ImageChip,
+} from "../../components/teacher/ImageSectionCard";
 import {
   TEACHER,
-  CLASSES,
-  TEACHER_EVENTS,
-  TEACHER_ACTIVITY,
-  TEACHER_UPDATES,
-  TODAY_LESSONS,
+  TODAY_CURRICULUM,
+  CURRICULUM,
+  getAttendanceSummary,
 } from "../../data/teacherMock";
-import { ParentColors as C } from "../../constants/parentTheme";
+import { TeacherColors as C } from "../../constants/teacherTheme";
+import { useTeacherEvents } from "../../contexts/TeacherEventsContext";
+import { useChat } from "../../contexts/ChatContext";
+import { useTeacherStudents } from "../../contexts/TeacherStudentsContext";
+
+const IMAGES = {
+  welcome: require("../../../assets/images/teacher-home/teacher-home-welcome.png"),
+  lesson: require("../../../assets/images/teacher-home/teacher-home-lesson.png"),
+  students: require("../../../assets/images/teacher-home/teacher-home-students.png"),
+  upcoming: require("../../../assets/images/teacher-home/teacher-home-upcoming.png"),
+  events: require("../../../assets/images/teacher-home/teacher-home-events.png"),
+};
 
 export default function TeacherHome() {
-  const unread = TEACHER_UPDATES.filter((u) => u.unread).length;
-  const present = CLASSES.reduce((sum, c) => sum + c.presentToday, 0);
-  const students = CLASSES.reduce((sum, c) => sum + c.students, 0);
-  const nextLesson = TODAY_LESSONS.find((l) => l.status !== "done") ?? TODAY_LESSONS[0];
-  const upcoming = TEACHER_EVENTS[0];
+  const { events } = useTeacherEvents();
+  const { conversations } = useChat();
+  const { students } = useTeacherStudents();
+  const attendance = getAttendanceSummary(students);
+  const nextLesson =
+    CURRICULUM.find((l) => l.status === "upcoming") ?? CURRICULUM[1];
+  const upcomingEvent = events[0];
+  const unread = conversations.reduce((sum, c) => sum + c.unreadForTeacher, 0);
 
   return (
     <Screen>
-      <TopBar
-        title={`Hi, ${TEACHER.name.split(" ")[0]} 👋`}
-        subtitle={`${TEACHER.title} · ${TEACHER.school}`}
-        unread={unread}
-        bellHref="/teacher/updates"
-      />
-
-      <Card style={styles.summary}>
-        <Text style={styles.summaryTitle}>Today's Summary</Text>
-        <View style={styles.statRow}>
-          <Stat label="Classes" value={`${CLASSES.length}`} />
-          <Stat label="Present" value={`${present}/${students}`} />
-          <Stat label="Lessons" value={`${TODAY_LESSONS.length}`} />
+      <ImageSectionCard image={IMAGES.welcome} height={168}>
+        <View style={styles.welcomeRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.kicker}>Sunday School</Text>
+            <Text style={styles.hello}>Good morning, Teacher</Text>
+            <Text style={styles.group}>
+              {TEACHER.program} · {TEACHER.group}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => router.push("/teacher/messages")}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
+            {unread > 0 ? <View style={styles.dot} /> : null}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => router.push("/teacher/profile")}
+          >
+            <Ionicons name="person-outline" size={20} color="#fff" />
+          </TouchableOpacity>
         </View>
-        <View style={styles.nextBox}>
-          <Ionicons name="time-outline" size={18} color={C.accent} />
-          <Text style={styles.nextText}>
-            Next: {nextLesson.title} · {nextLesson.time}
+      </ImageSectionCard>
+
+      <SectionLabel title="Today's Lesson" />
+      <ImageSectionCard image={IMAGES.lesson} height={300}>
+        <ImageChip
+          label={`Week ${TODAY_CURRICULUM.week} · ${TODAY_CURRICULUM.date}`}
+          tone="accent"
+        />
+        <Text style={styles.title}>{TODAY_CURRICULUM.title}</Text>
+        <Text style={styles.meta}>{TODAY_CURRICULUM.scripture}</Text>
+
+        <View style={styles.divider} />
+
+        <Text style={styles.label}>Memory Verse</Text>
+        <Text style={styles.verse}>"{TODAY_CURRICULUM.memoryVerse}"</Text>
+
+        <TouchableOpacity
+          style={styles.cta}
+          activeOpacity={0.88}
+          onPress={() =>
+            router.push(`/teacher/curriculum/${TODAY_CURRICULUM.id}`)
+          }
+        >
+          <Text style={styles.ctaText}>Open Curriculum</Text>
+          <Ionicons name="arrow-forward" size={18} color="#fff" />
+        </TouchableOpacity>
+      </ImageSectionCard>
+
+      <SectionLabel title="Today's Students" />
+      <ImageSectionCard image={IMAGES.students} height={230}>
+        <Text style={styles.title}>{attendance.total} Students</Text>
+        <View style={styles.attRow}>
+          <Text style={styles.stat}>
+            <Text style={styles.statStrong}>{attendance.present}</Text> Present
+          </Text>
+          <Text style={styles.statDot}>·</Text>
+          <Text style={styles.stat}>
+            <Text style={styles.statStrong}>{attendance.absent}</Text> Absent
           </Text>
         </View>
-      </Card>
-
-      <SectionHeader
-        title="My Classes"
-        action="See all"
-        onPress={() => router.push("/teacher/classes")}
-      />
-      {CLASSES.slice(0, 2).map((item) => (
-        <Card
-          key={item.id}
-          style={styles.classCard}
-          onPress={() => router.push(`/teacher/classes/${item.id}`)}
+        <TouchableOpacity
+          style={styles.cta}
+          activeOpacity={0.88}
+          onPress={() => router.push("/teacher/classes/attendance")}
         >
-          <View style={styles.classTop}>
-            <View style={styles.classIcon}>
-              <Ionicons name="people" size={18} color={C.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              <Text style={styles.meta}>
-                {item.students} students · {item.room}
-              </Text>
-            </View>
-          </View>
-          <Text style={styles.meta}>Next lesson: {item.nextLesson}</Text>
-        </Card>
-      ))}
+          <Text style={styles.ctaText}>Take Attendance</Text>
+          <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
+        </TouchableOpacity>
+      </ImageSectionCard>
 
-      <SectionHeader title="Quick Actions" />
-      <View style={styles.actions}>
-        <Action
-          icon="people-outline"
-          label="Classes"
-          onPress={() => router.push("/teacher/classes")}
-        />
-        <Action
-          icon="calendar-outline"
-          label="Schedule"
-          onPress={() => router.push("/teacher/schedule")}
-        />
-        <Action
-          icon="checkmark-done-outline"
-          label="Attendance"
-          onPress={() => router.push(`/teacher/classes/${CLASSES[0].id}`)}
-        />
-        <Action
-          icon="chatbubble-ellipses-outline"
-          label="Updates"
-          onPress={() => router.push("/teacher/updates")}
-        />
-      </View>
+      <SectionLabel title="Upcoming" />
+      <ImageSectionCard
+        image={IMAGES.upcoming}
+        height={170}
+        onPress={() => router.push("/teacher/curriculum")}
+      >
+        <ImageChip label="Next Sunday" />
+        <Text style={styles.title}>{nextLesson.title}</Text>
+        <Text style={styles.meta}>{nextLesson.date}</Text>
+      </ImageSectionCard>
 
-      <SectionHeader
-        title="Upcoming Events"
-        action="Calendar"
-        onPress={() => router.push("/teacher/schedule")}
-      />
-      <Card onPress={() => router.push(`/teacher/schedule/${upcoming.id}`)}>
-        <Text style={styles.kicker}>Event</Text>
-        <Text style={styles.cardTitle}>{upcoming.title}</Text>
-        <Text style={styles.meta}>
-          {upcoming.date} · {upcoming.time}
-        </Text>
-        <Text style={styles.meta}>{upcoming.location}</Text>
-      </Card>
-
-      <SectionHeader title="Recent Activity" />
-      <Card>
-        {TEACHER_ACTIVITY.map((item, index) => (
-          <View
-            key={item.id}
-            style={[
-              styles.activityRow,
-              index < TEACHER_ACTIVITY.length - 1 && styles.activityBorder,
-            ]}
+      <SectionLabel title="Upcoming Events" />
+      {upcomingEvent ? (
+        <ImageSectionCard
+          image={IMAGES.events}
+          height={200}
+          onPress={() => router.push(`/teacher/schedule/${upcomingEvent.id}`)}
+        >
+          <ImageChip label="Event" tone="accent" />
+          <Text style={styles.title}>{upcomingEvent.title}</Text>
+          <Text style={styles.meta}>
+            {upcomingEvent.date} · {upcomingEvent.time}
+          </Text>
+          <TouchableOpacity
+            style={styles.ctaGhost}
+            activeOpacity={0.88}
+            onPress={() => router.push("/teacher/schedule")}
           >
-            <View style={styles.activityIcon}>
-              <Ionicons name="ellipse" size={8} color={C.accent} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.activityTitle}>{item.title}</Text>
-              <Text style={styles.meta}>{item.time}</Text>
-            </View>
-          </View>
-        ))}
-      </Card>
+            <Text style={styles.ctaGhostText}>View Events</Text>
+            <Ionicons name="chevron-forward" size={16} color="#fff" />
+          </TouchableOpacity>
+        </ImageSectionCard>
+      ) : null}
     </Screen>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function Action({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity style={styles.action} onPress={onPress}>
-      <View style={styles.actionIcon}>
-        <Ionicons name={icon} size={20} color={C.accent} />
-      </View>
-      <Text style={styles.actionLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
 const styles = StyleSheet.create({
-  summary: { marginBottom: 4 },
-  summaryTitle: { fontWeight: "800", color: C.text, marginBottom: 12, fontSize: 16 },
-  statRow: { flexDirection: "row", gap: 8 },
-  stat: {
-    flex: 1,
-    backgroundColor: C.accentSoft,
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: "center",
+  welcomeRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
   },
-  statValue: { fontWeight: "800", color: C.text, fontSize: 15 },
-  statLabel: { marginTop: 4, color: C.muted, fontSize: 11, fontWeight: "600" },
-  nextBox: {
-    marginTop: 12,
+  kicker: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  hello: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: -0.4,
+  },
+  group: {
+    marginTop: 6,
+    fontSize: 14,
+    color: "rgba(255,255,255,0.88)",
+    fontWeight: "500",
+  },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.28)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+  },
+  dot: {
+    position: "absolute",
+    top: 7,
+    right: 7,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.primary,
+    borderWidth: 1,
+    borderColor: "#fff",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: -0.3,
+    lineHeight: 30,
+  },
+  meta: {
+    marginTop: 6,
+    fontSize: 15,
+    color: "rgba(255,255,255,0.9)",
+    fontWeight: "500",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    marginVertical: 14,
+  },
+  label: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    color: "rgba(255,255,255,0.72)",
+    marginBottom: 6,
+  },
+  verse: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#FFFFFF",
+    fontStyle: "italic",
+    fontWeight: "500",
+  },
+  attRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: C.bg,
-    borderRadius: 12,
-    padding: 10,
+    marginTop: 8,
+    marginBottom: 4,
   },
-  nextText: { flex: 1, color: C.text, fontWeight: "600", fontSize: 13 },
-  classCard: { marginBottom: 10 },
-  classTop: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 },
-  classIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: C.accentSoft,
-    alignItems: "center",
-    justifyContent: "center",
+  stat: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 15,
+    fontWeight: "500",
   },
-  kicker: { color: C.accent, fontWeight: "800", fontSize: 12, marginBottom: 6 },
-  cardTitle: { fontSize: 16, fontWeight: "800", color: C.text },
-  meta: { marginTop: 4, color: C.muted, fontSize: 13 },
-  actions: { flexDirection: "row", gap: 10 },
-  action: { flex: 1, alignItems: "center" },
-  actionIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.border,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
+  statStrong: {
+    color: "#FFFFFF",
+    fontWeight: "800",
   },
-  actionLabel: { fontSize: 12, fontWeight: "700", color: C.text },
-  activityRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10 },
-  activityBorder: { borderBottomWidth: 1, borderBottomColor: C.border },
-  activityIcon: {
-    width: 28,
-    height: 28,
+  statDot: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 15,
+  },
+  cta: {
+    marginTop: 16,
+    height: 48,
     borderRadius: 14,
-    backgroundColor: C.accentSoft,
+    backgroundColor: C.primary,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 8,
   },
-  activityTitle: { fontWeight: "700", color: C.text },
+  ctaText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  ctaGhost: {
+    marginTop: 14,
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  ctaGhostText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 14,
+  },
 });
