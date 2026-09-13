@@ -1,55 +1,64 @@
 import React from "react";
-import { Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
-import { useLocalSearchParams, router } from "expo-router";
-import { Screen, TopBar, Card } from "../../../components/parent/ui";
-import { TEACHER_EVENTS } from "../../../data/teacherMock";
-import { ParentColors as C } from "../../../constants/parentTheme";
+import { Text, StyleSheet } from "react-native";
+import { useLocalSearchParams } from "expo-router";
+import {
+  Screen,
+  SoftCard,
+  BackHeader,
+  SectionLabel,
+} from "../../../components/teacher/ui";
+import {
+  useTeacherEvents,
+  AUDIENCE_LABELS,
+} from "../../../contexts/TeacherEventsContext";
+import { TeacherColors as C } from "../../../constants/teacherTheme";
 
-export default function TeacherEventDetails() {
+export default function EventDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const event = TEACHER_EVENTS.find((item) => item.id === id) ?? TEACHER_EVENTS[0];
+  const { getEvent } = useTeacherEvents();
+  const event = getEvent(id);
 
   return (
     <Screen>
-      <TopBar title="Event Details" showBell={false} onBack={() => router.back()} />
+      <BackHeader title="Event" subtitle="Upcoming activity" />
 
-      <Card>
+      <SoftCard>
         <Text style={styles.kicker}>Upcoming</Text>
         <Text style={styles.title}>{event.title}</Text>
-        <Text style={styles.meta}>
-          {event.date} · {event.time}
-        </Text>
-        <Text style={styles.meta}>{event.location}</Text>
-      </Card>
+        <Text style={styles.meta}>{event.date}</Text>
+        <Text style={styles.meta}>{event.time}</Text>
+        <Text style={styles.location}>{event.location}</Text>
+      </SoftCard>
 
-      <Card style={{ marginTop: 14 }}>
-        <Text style={styles.section}>About</Text>
+      <SectionLabel title="Audience" />
+      <SoftCard>
+        <Text style={styles.body}>{AUDIENCE_LABELS[event.audience]}</Text>
+      </SoftCard>
+
+      <SectionLabel title="Description" />
+      <SoftCard>
         <Text style={styles.body}>{event.description}</Text>
-      </Card>
-
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => Alert.alert("Added", "This event was added to your schedule.")}
-      >
-        <Text style={styles.buttonText}>Add to my day</Text>
-      </TouchableOpacity>
+      </SoftCard>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  kicker: { color: C.accent, fontWeight: "800", marginBottom: 8 },
-  title: { fontSize: 22, fontWeight: "800", color: C.text },
-  meta: { marginTop: 6, color: C.muted },
-  section: { fontWeight: "800", color: C.text, marginBottom: 8, fontSize: 16 },
-  body: { color: C.muted, lineHeight: 22 },
-  button: {
-    marginTop: 20,
-    height: 54,
-    borderRadius: 16,
-    backgroundColor: C.accent,
-    alignItems: "center",
-    justifyContent: "center",
+  kicker: {
+    color: C.primary,
+    fontWeight: "700",
+    marginBottom: 8,
+    fontSize: 12,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
   },
-  buttonText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  title: { fontSize: 22, fontWeight: "700", color: C.text },
+  meta: { marginTop: 6, color: C.muted, fontSize: 15 },
+  location: {
+    marginTop: 10,
+    color: C.text,
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  body: { color: C.text, lineHeight: 22, fontSize: 15 },
 });

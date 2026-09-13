@@ -36,9 +36,14 @@ export default function LoginScreen() {
       return;
     }
 
+    if (email === "admin@test.com") {
+      router.replace("/admin");
+      return;
+    }
+
     Alert.alert(
       "Demo Account",
-      "Use parent@test.com or teacher@test.com"
+      "Use parent@test.com, teacher@test.com, or admin@test.com"
     );
   };
 

@@ -1,54 +1,43 @@
 import React from "react";
-import { Text, StyleSheet, Linking, TouchableOpacity } from "react-native";
-import { router } from "expo-router";
-import { Screen, TopBar, Card } from "../../../components/parent/ui";
-import { ParentColors as C } from "../../../constants/parentTheme";
+import { Text, StyleSheet, Linking } from "react-native";
+import { Screen, SoftCard, BackHeader, PrimaryButton } from "../../../components/teacher/ui";
+import { TeacherColors as C } from "../../../constants/teacherTheme";
 
 const FAQS = [
   {
     q: "How do I take attendance?",
-    a: "Open Classes, choose a class, then use the Attendance tab.",
+    a: "Open Students, then tap Present / Absent / Mark next to each child.",
   },
   {
-    q: "Where is my lesson schedule?",
-    a: "Use the Schedule tab for today's lessons and upcoming events.",
+    q: "Where is today's lesson?",
+    a: "Home shows Today's Lesson. Open Curriculum for the full list.",
   },
   {
     q: "How do I message a parent?",
-    a: "Open a student profile from Class Details, then tap Message parent.",
+    a: "Open a student profile, then tap Message parent.",
   },
 ];
 
 export default function TeacherHelpScreen() {
   return (
     <Screen>
-      <TopBar title="Help & Support" showBell={false} onBack={() => router.back()} />
+      <BackHeader title="Help & Support" />
       {FAQS.map((item) => (
-        <Card key={item.q} style={{ marginBottom: 12 }}>
+        <SoftCard key={item.q} style={{ marginBottom: 12 }}>
           <Text style={styles.q}>{item.q}</Text>
           <Text style={styles.a}>{item.a}</Text>
-        </Card>
+        </SoftCard>
       ))}
-      <TouchableOpacity
-        style={styles.button}
+      <PrimaryButton
+        label="Contact support"
+        icon="mail-outline"
         onPress={() => Linking.openURL("mailto:support@yenelijoch.com")}
-      >
-        <Text style={styles.buttonText}>Contact support</Text>
-      </TouchableOpacity>
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  q: { fontWeight: "800", color: C.text, marginBottom: 6 },
+  q: { fontWeight: "700", color: C.text, marginBottom: 6 },
   a: { color: C.muted, lineHeight: 20 },
-  button: {
-    marginTop: 8,
-    height: 54,
-    borderRadius: 16,
-    backgroundColor: C.accent,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  buttonText: { color: "#fff", fontWeight: "800", fontSize: 16 },
 });

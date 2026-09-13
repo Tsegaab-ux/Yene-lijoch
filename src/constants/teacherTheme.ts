@@ -1,0 +1,18 @@
+export const TeacherColors = {
+  bg: "#F7F4EF",
+  bgSoft: "#EFEAE2",
+  text: "#2C2A26",
+  muted: "#8A847A",
+  primary: "#C45C26",
+  primarySoft: "#F8E8DC",
+  secondary: "#3D6B5A",
+  secondarySoft: "#E3EFE9",
+  card: "#FFFFFF",
+  border: "#E8E2D8",
+  success: "#2F9E6B",
+  successSoft: "#E6F6EE",
+  warning: "#D4A017",
+  warningSoft: "#FFF6D9",
+  danger: "#D64545",
+  shadow: "rgba(44, 42, 38, 0.08)",
+} as const;
