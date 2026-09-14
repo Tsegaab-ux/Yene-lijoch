@@ -216,7 +216,8 @@ export const STUDENTS: SundayStudent[] = [
   { id: "s12", name: "Elias Girma", initials: "EG", color: "#2F9E6B", group: "Group A", attendance: "absent", parent: "Girma Kebede", notes: "Follow up with parent." },
 ];
 
-export const ATTENDANCE_DATE = "September 13";
+export const ATTENDANCE_DATE = "September 13, 2026";
+export const ATTENDANCE_WEEKDAY = "Sunday";
 
 export const EVENTS: SundayEvent[] = [
   {

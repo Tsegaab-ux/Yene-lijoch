@@ -1,3 +1,7 @@
+/**
+ * Legacy admin data hook kept for old hidden screens.
+ * New admin UI uses useSharedContent instead.
+ */
 import React, { createContext, useContext, useMemo, useState } from "react";
 import {
   AdminChild,
@@ -47,15 +51,17 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
       classes,
       events,
       lessons,
-
       addTeacher: (teacher) => {
-        const id = makeId("t");
         setTeachers((prev) => [
           ...prev,
-          { ...teacher, id, classIds: [], status: teacher.status ?? "active" },
+          {
+            ...teacher,
+            id: makeId("t"),
+            classIds: [],
+            status: teacher.status ?? "active",
+          },
         ]);
       },
-
       toggleTeacherStatus: (id) => {
         setTeachers((prev) =>
           prev.map((t) =>
@@ -65,57 +71,31 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
           )
         );
       },
-
       addChild: (child) => {
         setChildList((prev) => [...prev, { ...child, id: makeId("c") }]);
-        setClasses((prev) =>
-          prev.map((c) =>
-            c.id === child.classId
-              ? { ...c, studentCount: c.studentCount + 1 }
-              : c
-          )
-        );
       },
-
-      assignTeacherToClass: (classId, teacherId) => {
-        setClasses((prev) =>
-          prev.map((c) => (c.id === classId ? { ...c, teacherId } : c))
-        );
-        setTeachers((prev) =>
-          prev.map((t) => {
-            const hasClass = t.classIds.includes(classId);
-            if (teacherId && teacherId === t.id && !hasClass) {
-              return { ...t, classIds: [...t.classIds, classId] };
-            }
-            if ((!teacherId || teacherId !== t.id) && hasClass) {
-              return { ...t, classIds: t.classIds.filter((id) => id !== classId) };
-            }
-            return t;
-          })
-        );
-      },
-
+      assignTeacherToClass: () => {},
       addEvent: (event) => {
         setEvents((prev) => [...prev, { ...event, id: makeId("e") }]);
       },
-
       updateLessonProgress: (id, progress) => {
         setLessons((prev) =>
           prev.map((l) =>
             l.id === id
               ? {
                   ...l,
-                  progress: Math.min(100, Math.max(0, progress)),
+                  progress: Math.max(0, Math.min(100, progress)),
                   status: progress >= 100 ? "completed" : l.status,
                 }
               : l
           )
         );
       },
-
       publishLesson: (id) => {
         setLessons((prev) =>
-          prev.map((l) => (l.id === id ? { ...l, status: "published" } : l))
+          prev.map((l) =>
+            l.id === id ? { ...l, status: "published" } : l
+          )
         );
       },
     }),
@@ -123,7 +103,9 @@ export function AdminDataProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <AdminDataContext.Provider value={value}>{children}</AdminDataContext.Provider>
+    <AdminDataContext.Provider value={value}>
+      {children}
+    </AdminDataContext.Provider>
   );
 }
 

@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useMemo, useState } from "react";
-import { STUDENTS, SundayStudent, TEACHER } from "../data/teacherMock";
+import {
+  STUDENTS,
+  SundayStudent,
+  TEACHER,
+  ATTENDANCE_DATE,
+  ATTENDANCE_WEEKDAY,
+} from "../data/teacherMock";
 
 type NewStudentInput = {
   name: string;
@@ -10,6 +16,10 @@ type NewStudentInput = {
 
 type TeacherStudentsContextValue = {
   students: SundayStudent[];
+  attendanceWeekday: string;
+  attendanceDate: string;
+  attendanceLabel: string;
+  setAttendanceDay: (weekday: string, date: string) => void;
   addStudent: (input: NewStudentInput) => SundayStudent;
   updateAttendance: (
     marks: Record<string, "present" | "absent" | "unmarked">
@@ -41,10 +51,19 @@ export function TeacherStudentsProvider({
   children: React.ReactNode;
 }) {
   const [students, setStudents] = useState(STUDENTS);
+  const [attendanceWeekday, setAttendanceWeekday] = useState(ATTENDANCE_WEEKDAY);
+  const [attendanceDate, setAttendanceDate] = useState(ATTENDANCE_DATE);
 
   const value = useMemo<TeacherStudentsContextValue>(
     () => ({
       students,
+      attendanceWeekday,
+      attendanceDate,
+      attendanceLabel: `${attendanceWeekday}, ${attendanceDate}`,
+      setAttendanceDay: (weekday, date) => {
+        setAttendanceWeekday(weekday.trim() || ATTENDANCE_WEEKDAY);
+        setAttendanceDate(date.trim() || ATTENDANCE_DATE);
+      },
       addStudent: (input) => {
         const created: SundayStudent = {
           id: `s-${Date.now()}`,
@@ -68,7 +87,7 @@ export function TeacherStudentsProvider({
         );
       },
     }),
-    [students]
+    [students, attendanceWeekday, attendanceDate]
   );
 
   return (

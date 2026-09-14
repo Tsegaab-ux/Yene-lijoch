@@ -1,272 +1,363 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+} from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Screen, TopBar, Card, SectionHeader, Avatar, ProgressBar } from "../../components/parent/ui";
-import { useSelectedChild } from "../../contexts/SelectedChildContext";
-import { PARENT, LESSONS, EVENTS, ACTIVITIES, NOTIFICATIONS } from "../../data/parentMock";
+import {
+  Screen,
+  SectionLabel,
+  SoftCard,
+  ChildChip,
+  AvatarBubble,
+} from "../../components/parent/ui";
+import {
+  ImageSectionCard,
+  ImageChip,
+} from "../../components/teacher/ImageSectionCard";
+import { VideoEmbed } from "../../components/parent/VideoEmbed";
+import { MEDIA_KIND_LABELS, MediaKind } from "../../data/sharedContent";
 import { ParentColors as C } from "../../constants/parentTheme";
+import { useSelectedChild } from "../../contexts/SelectedChildContext";
+import { useSharedContent } from "../../contexts/SharedContentContext";
+import { useChat } from "../../contexts/ChatContext";
+
+const IMAGES = {
+  welcome: require("../../../assets/images/teacher-home/teacher-home-welcome.png"),
+  lesson: require("../../../assets/images/teacher-home/teacher-home-lesson.png"),
+  students: require("../../../assets/images/teacher-home/teacher-home-students.png"),
+  events: require("../../../assets/images/teacher-home/teacher-home-events.png"),
+};
+
+const HOME_MEDIA_ORDER: MediaKind[] = [
+  "video",
+  "song",
+  "bible_story",
+  "course",
+  "picture",
+];
 
 export default function ParentHome() {
-  const { childrenList, selectedChild, selectedId, setSelectedId } = useSelectedChild();
-  const todayLesson = LESSONS.find((l) => l.status === "continue") ?? LESSONS[0];
-  const upcoming = EVENTS.find((e) => e.status !== "past") ?? EVENTS[0];
-  const unread = NOTIFICATIONS.filter((n) => n.unread).length;
+  const { childrenList, selectedChild, selectedId, setSelectedId, groupName } =
+    useSelectedChild();
+  const {
+    publishedMedia,
+    publishedEvents,
+    todayCourse,
+    parentNotices,
+    getAttendanceSummary,
+  } = useSharedContent();
+  const { conversations } = useChat();
+
+  const unreadNotifs = parentNotices.filter((n) => n.unread).length;
+  const unreadChat = conversations.reduce(
+    (sum, c) => sum + c.unreadForParent,
+    0
+  );
+  const attendance = getAttendanceSummary(selectedId);
+  const upcomingEvent =
+    publishedEvents.find((e) => e.status !== "past") ?? publishedEvents[0];
+  const course = todayCourse;
 
   return (
     <Screen>
-      <TopBar
-        title={`Hi, ${PARENT.name.split(" ")[0]} 👋`}
-        subtitle="Here's how your child is doing today"
-        unread={unread}
-      />
+      <ImageSectionCard image={IMAGES.welcome} height={168}>
+        <View style={styles.welcomeRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.kicker}>Parent Portal</Text>
+            <Text style={styles.hello}>Hi, Parent</Text>
+            <Text style={styles.group}>
+              {selectedChild.name} · {groupName}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => router.push("/parent/notifications")}
+          >
+            <Ionicons name="notifications-outline" size={20} color="#fff" />
+            {unreadNotifs > 0 ? <View style={styles.dot} /> : null}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => router.push("/parent/messages")}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
+            {unreadChat > 0 ? <View style={styles.dot} /> : null}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => router.push("/parent/profile")}
+          >
+            <Ionicons name="person-outline" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </ImageSectionCard>
 
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.childRow}
+        style={styles.childScroll}
       >
-        {childrenList.map((child) => {
-          const active = child.id === selectedId;
-          return (
-            <TouchableOpacity
-              key={child.id}
-              style={[styles.childChip, active && styles.childChipActive]}
-              onPress={() => setSelectedId(child.id)}
-            >
-              <Avatar child={child} size={36} />
-              <View>
-                <Text style={[styles.childName, active && { color: "#fff" }]}>
-                  {child.name.split(" ")[0]}
-                </Text>
-                <Text style={[styles.childGrade, active && { color: "#E8E4FF" }]}>
-                  {child.grade}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+        {childrenList.map((child) => (
+          <ChildChip
+            key={child.id}
+            child={child}
+            active={child.id === selectedId}
+            onPress={() => setSelectedId(child.id)}
+          />
+        ))}
       </ScrollView>
 
-      <Card style={styles.summary}>
-        <View style={styles.summaryTop}>
-          <Avatar child={selectedChild} size={56} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.summaryName}>{selectedChild.name}</Text>
-            <Text style={styles.summaryMeta}>
-              {selectedChild.grade} · {selectedChild.school}
-            </Text>
+      {course ? (
+        <>
+          <SectionLabel title="This Week's Course" />
+          <ImageSectionCard image={IMAGES.lesson} height={280}>
+            <ImageChip
+              label={`Week ${course.week} · ${course.category}`}
+              tone="accent"
+            />
+            <Text style={styles.title}>{course.title}</Text>
+            <Text style={styles.meta}>{course.scripture}</Text>
+            <View style={styles.divider} />
+            <Text style={styles.label}>Memory Verse</Text>
+            <Text style={styles.verse}>"{course.memoryVerse}"</Text>
+            <TouchableOpacity
+              style={styles.cta}
+              activeOpacity={0.88}
+              onPress={() =>
+                router.push(`/parent/courses/${course.id}` as any)
+              }
+            >
+              <Text style={styles.ctaText}>Open Course</Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            </TouchableOpacity>
+          </ImageSectionCard>
+        </>
+      ) : null}
+
+      {HOME_MEDIA_ORDER.map((kind) => {
+        const featured = publishedMedia.find((m) => m.kind === kind);
+        if (!featured) return null;
+        return (
+          <View key={kind}>
+            <SectionLabel title={MEDIA_KIND_LABELS[kind]} />
+            <SoftCard style={styles.mediaCard}>
+              <View style={styles.mediaHeader}>
+                <View
+                  style={[styles.kindDot, { backgroundColor: featured.color }]}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.mediaTitle}>{featured.title}</Text>
+                  <Text style={styles.mediaMeta}>
+                    {featured.duration} · {featured.ageGroup}
+                  </Text>
+                </View>
+              </View>
+              <VideoEmbed
+                youtubeId={featured.youtubeId}
+                localUri={featured.localUri}
+                coverUri={featured.coverUri}
+                title={featured.title}
+                kind={featured.kind}
+                height={180}
+              />
+              <Text style={styles.mediaDesc}>{featured.description}</Text>
+              <TouchableOpacity
+                style={styles.linkRow}
+                onPress={() => router.push("/parent/courses" as any)}
+              >
+                <Text style={styles.linkText}>
+                  See all {MEDIA_KIND_LABELS[kind]}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={C.primary} />
+              </TouchableOpacity>
+            </SoftCard>
           </View>
-        </View>
-        <View style={styles.statRow}>
-          <Stat label="Progress" value={`${selectedChild.overallProgress}%`} />
-          <Stat label="Attendance" value={`${selectedChild.attendance}%`} />
-          <Stat label="Streak" value={`${selectedChild.streak} days`} />
-        </View>
-      </Card>
+        );
+      })}
 
-      <SectionHeader
-        title="Today's Lesson"
-        action="See all"
-        onPress={() => router.push("/parent/lessons")}
-      />
-      <Card onPress={() => router.push(`/parent/lessons/${todayLesson.id}`)}>
-        <Text style={styles.kicker}>{todayLesson.subject}</Text>
-        <Text style={styles.cardTitle}>{todayLesson.title}</Text>
-        <Text style={styles.cardMeta}>
-          {todayLesson.duration} · {todayLesson.teacher}
-        </Text>
-        <View style={{ marginTop: 12 }}>
-          <ProgressBar value={todayLesson.progress} />
+      <SectionLabel title="Child Attendance" />
+      <ImageSectionCard image={IMAGES.students} height={230}>
+        <ImageChip label={`${selectedChild.name}`} />
+        <Text style={styles.title}>{selectedChild.attendance}% present</Text>
+        <View style={styles.attRow}>
+          <Text style={styles.stat}>
+            <Text style={styles.statStrong}>{attendance.present}</Text> Present
+          </Text>
+          <Text style={styles.statDot}>·</Text>
+          <Text style={styles.stat}>
+            <Text style={styles.statStrong}>{attendance.absent}</Text> Absent
+          </Text>
         </View>
-        <Text style={styles.progressLabel}>{todayLesson.progress}% complete</Text>
-      </Card>
+        <TouchableOpacity
+          style={styles.cta}
+          activeOpacity={0.88}
+          onPress={() => router.push("/parent/attendance" as any)}
+        >
+          <Text style={styles.ctaText}>View Attendance</Text>
+          <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
+        </TouchableOpacity>
+      </ImageSectionCard>
 
-      <SectionHeader
-        title="Upcoming Event"
-        action="Calendar"
-        onPress={() => router.push("/parent/events")}
-      />
-      <Card onPress={() => router.push(`/parent/events/${upcoming.id}`)}>
-        <View style={styles.eventRow}>
-          <View style={styles.eventIcon}>
-            <Ionicons name="calendar" size={22} color={C.accent} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.cardTitle}>{upcoming.title}</Text>
-            <Text style={styles.cardMeta}>
-              {upcoming.date} · {upcoming.time}
-            </Text>
-            <Text style={styles.cardMeta}>{upcoming.location}</Text>
-          </View>
-        </View>
-      </Card>
-
-      <SectionHeader
-        title="Progress Overview"
-        action="Details"
-        onPress={() => router.push("/parent/progress")}
-      />
-      <View style={styles.overviewRow}>
-        <Card style={styles.overviewCard}>
-          <Text style={styles.overviewValue}>{selectedChild.overallProgress}%</Text>
-          <Text style={styles.overviewLabel}>Overall</Text>
-        </Card>
-        <Card style={styles.overviewCard}>
-          <Text style={styles.overviewValue}>{selectedChild.attendance}%</Text>
-          <Text style={styles.overviewLabel}>Attendance</Text>
-        </Card>
-      </View>
-
-      <SectionHeader title="Recent Activity" />
-      <Card>
-        {ACTIVITIES.map((item, index) => (
-          <View
-            key={item.id}
-            style={[
-              styles.activityRow,
-              index < ACTIVITIES.length - 1 && styles.activityBorder,
-            ]}
+      {upcomingEvent ? (
+        <>
+          <SectionLabel title="Upcoming Event" />
+          <ImageSectionCard
+            image={IMAGES.events}
+            height={200}
+            onPress={() =>
+              router.push(`/parent/events/${upcomingEvent.id}` as any)
+            }
           >
-            <View style={styles.activityIcon}>
-              <Ionicons name={item.icon} size={18} color={C.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.activityTitle}>{item.title}</Text>
-              <Text style={styles.cardMeta}>{item.time}</Text>
-            </View>
-          </View>
-        ))}
-      </Card>
+            <ImageChip label={upcomingEvent.audience} />
+            <Text style={styles.title}>{upcomingEvent.title}</Text>
+            <Text style={styles.meta}>
+              {upcomingEvent.date} · {upcomingEvent.time}
+            </Text>
+          </ImageSectionCard>
+        </>
+      ) : null}
 
-      <SectionHeader title="Quick Actions" />
-      <View style={styles.actions}>
-        <Action
-          icon="book-outline"
-          label="Lessons"
-          onPress={() => router.push("/parent/lessons")}
-        />
-        <Action
-          icon="stats-chart-outline"
-          label="Progress"
-          onPress={() => router.push("/parent/progress")}
-        />
-        <Action
-          icon="calendar-outline"
-          label="Events"
-          onPress={() => router.push("/parent/events")}
-        />
-        <Action
-          icon="chatbubble-ellipses-outline"
-          label="Teacher"
-          onPress={() => router.push("/parent/messages")}
-        />
-      </View>
+      <SectionLabel title="Chat with Teacher" />
+      <SoftCard
+        style={styles.chatCard}
+        onPress={() => router.push("/parent/messages")}
+      >
+        <AvatarBubble initials="HB" color={C.secondary} size={48} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.chatTitle}>Message Teacher</Text>
+          <Text style={styles.chatSub}>
+            Ask about attendance, lessons, or pickup
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={C.muted} />
+      </SoftCard>
     </Screen>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function Action({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity style={styles.action} onPress={onPress}>
-      <View style={styles.actionIcon}>
-        <Ionicons name={icon} size={20} color={C.primary} />
-      </View>
-      <Text style={styles.actionLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
 const styles = StyleSheet.create({
-  childRow: { gap: 10, paddingBottom: 4 },
-  childChip: {
+  welcomeRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  kicker: {
+    color: "rgba(255,255,255,0.75)",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
+  hello: {
+    color: "#fff",
+    fontSize: 26,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+  },
+  group: {
+    marginTop: 4,
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dot: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.secondary,
+  },
+  childScroll: { marginTop: 10, marginBottom: 4 },
+  title: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
+  meta: {
+    color: "rgba(255,255,255,0.82)",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    marginVertical: 12,
+  },
+  label: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  verse: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
+    fontStyle: "italic",
+    lineHeight: 22,
+    marginBottom: 14,
+  },
+  cta: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: C.secondary,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  ctaText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  attRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 14,
+    marginTop: 4,
+  },
+  stat: { color: "rgba(255,255,255,0.85)", fontSize: 14 },
+  statStrong: { color: "#fff", fontWeight: "800" },
+  statDot: { color: "rgba(255,255,255,0.5)" },
+  mediaCard: { marginBottom: 4 },
+  mediaHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 18,
+    marginBottom: 12,
   },
-  childChipActive: {
-    backgroundColor: C.primary,
-    borderColor: C.primary,
-  },
-  childName: { fontWeight: "800", color: C.text, fontSize: 13 },
-  childGrade: { color: C.muted, fontSize: 11, marginTop: 1 },
-  summary: { marginTop: 16 },
-  summaryTop: { flexDirection: "row", alignItems: "center", gap: 12 },
-  summaryName: { fontSize: 18, fontWeight: "800", color: C.text },
-  summaryMeta: { marginTop: 4, color: C.muted, fontSize: 13 },
-  statRow: { flexDirection: "row", marginTop: 16, gap: 8 },
-  stat: {
-    flex: 1,
-    backgroundColor: C.primarySoft,
-    borderRadius: 14,
-    paddingVertical: 12,
+  kindDot: { width: 10, height: 10, borderRadius: 5 },
+  mediaTitle: { fontSize: 16, fontWeight: "700", color: C.text },
+  mediaMeta: { marginTop: 2, fontSize: 12, color: C.muted, fontWeight: "500" },
+  mediaDesc: { marginTop: 10, color: C.muted, fontSize: 13, lineHeight: 19 },
+  linkRow: {
+    marginTop: 12,
+    flexDirection: "row",
     alignItems: "center",
+    gap: 4,
   },
-  statValue: { fontWeight: "800", color: C.text, fontSize: 15 },
-  statLabel: { marginTop: 4, color: C.muted, fontSize: 11, fontWeight: "600" },
-  kicker: { color: C.primary, fontWeight: "800", fontSize: 12, marginBottom: 6 },
-  cardTitle: { fontSize: 16, fontWeight: "800", color: C.text },
-  cardMeta: { marginTop: 4, color: C.muted, fontSize: 13 },
-  progressLabel: { marginTop: 8, color: C.muted, fontSize: 12, fontWeight: "600" },
-  eventRow: { flexDirection: "row", gap: 12, alignItems: "center" },
-  eventIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: C.accentSoft,
+  linkText: { color: C.primary, fontWeight: "700", fontSize: 13 },
+  chatCard: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-  },
-  overviewRow: { flexDirection: "row", gap: 10 },
-  overviewCard: { flex: 1, alignItems: "center" },
-  overviewValue: { fontSize: 26, fontWeight: "800", color: C.primary },
-  overviewLabel: { marginTop: 4, color: C.muted, fontWeight: "600" },
-  activityRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10 },
-  activityBorder: { borderBottomWidth: 1, borderBottomColor: C.border },
-  activityIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: C.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  activityTitle: { fontWeight: "700", color: C.text },
-  actions: { flexDirection: "row", gap: 10 },
-  action: { flex: 1, alignItems: "center" },
-  actionIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.border,
-    alignItems: "center",
-    justifyContent: "center",
+    gap: 12,
     marginBottom: 8,
   },
-  actionLabel: { fontSize: 12, fontWeight: "700", color: C.text },
+  chatTitle: { fontSize: 16, fontWeight: "700", color: C.text },
+  chatSub: { marginTop: 3, fontSize: 13, color: C.muted },
 });
