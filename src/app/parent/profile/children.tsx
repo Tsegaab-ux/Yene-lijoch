@@ -27,7 +27,7 @@ export default function MyChildrenScreen() {
                 <Text style={styles.meta}>
                   {child.grade} · Age {child.age}
                 </Text>
-                <Text style={styles.meta}>{child.school}</Text>
+                <Text style={styles.meta}>{child.parentName}</Text>
               </View>
             </View>
           </Card>

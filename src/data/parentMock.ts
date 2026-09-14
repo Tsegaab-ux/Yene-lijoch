@@ -4,6 +4,7 @@ export type Child = {
   grade: string;
   school: string;
   age: number;
+  group: string;
   avatarColor: string;
   initials: string;
   attendance: number;
@@ -11,16 +12,39 @@ export type Child = {
   streak: number;
 };
 
-export type Lesson = {
+export type MediaKind = "video" | "song" | "bible_story" | "course";
+
+export type MediaItem = {
   id: string;
   title: string;
-  subject: string;
-  category: string;
+  kind: MediaKind;
   duration: string;
-  progress: number;
-  status: "continue" | "recommended" | "completed";
-  teacher: string;
   description: string;
+  /** YouTube video id for embed */
+  youtubeId: string;
+  ageGroup: string;
+  color: string;
+};
+
+export type CourseItem = {
+  id: string;
+  title: string;
+  category: string;
+  week: number;
+  date: string;
+  scripture: string;
+  memoryVerse: string;
+  description: string;
+  status: "this_week" | "upcoming" | "completed";
+};
+
+export type AttendanceDay = {
+  id: string;
+  childId: string;
+  weekday: string;
+  date: string;
+  status: "present" | "absent";
+  lesson: string;
 };
 
 export type EventItem = {
@@ -29,7 +53,7 @@ export type EventItem = {
   date: string;
   time: string;
   location: string;
-  type: "school" | "learning" | "community";
+  audience: string;
   status: "upcoming" | "registered" | "past";
   description: string;
 };
@@ -39,15 +63,8 @@ export type NotificationItem = {
   title: string;
   body: string;
   time: string;
-  category: "learning" | "teacher" | "events" | "attendance" | "system";
+  category: "attendance" | "events" | "courses" | "chat" | "system";
   unread: boolean;
-};
-
-export type Activity = {
-  id: string;
-  title: string;
-  time: string;
-  icon: "book-outline" | "trophy-outline" | "calendar-outline" | "checkmark-circle-outline";
 };
 
 export const PARENT = {
@@ -62,9 +79,10 @@ export const CHILDREN: Child[] = [
     id: "selam",
     name: "Selam Abebe",
     grade: "Grade 3",
-    school: "Yene Lijoch Academy",
+    school: "Yene Lijoch Sunday School",
     age: 8,
-    avatarColor: "#6C63FF",
+    group: "Group A",
+    avatarColor: "#3D6B5A",
     initials: "SA",
     attendance: 96,
     overallProgress: 78,
@@ -74,9 +92,10 @@ export const CHILDREN: Child[] = [
     id: "abel",
     name: "Abel Abebe",
     grade: "Grade 1",
-    school: "Yene Lijoch Academy",
+    school: "Yene Lijoch Sunday School",
     age: 6,
-    avatarColor: "#F28C28",
+    group: "Group B",
+    avatarColor: "#C45C26",
     initials: "AA",
     attendance: 91,
     overallProgress: 64,
@@ -84,214 +103,334 @@ export const CHILDREN: Child[] = [
   },
 ];
 
-export const LESSONS: Lesson[] = [
+export const MEDIA_ITEMS: MediaItem[] = [
   {
-    id: "1",
-    title: "Amharic Letters: ሀ to ነ",
-    subject: "Amharic",
-    category: "Language",
-    duration: "18 min",
-    progress: 62,
-    status: "continue",
-    teacher: "Mrs. Hana",
-    description:
-      "Practice reading and writing the first set of Amharic fidel with sounds, tracing, and short words.",
+    id: "v1",
+    title: "Jesus Loves the Little Children",
+    kind: "video",
+    duration: "3:12",
+    description: "A cheerful kids video about God’s love for every child.",
+    youtubeId: "XqZsoesa55w",
+    ageGroup: "Ages 4–10",
+    color: "#4A6FA5",
   },
   {
-    id: "2",
-    title: "Adding Within 20",
-    subject: "Math",
-    category: "Math",
-    duration: "15 min",
-    progress: 40,
-    status: "continue",
-    teacher: "Mr. Dawit",
-    description:
-      "Build number sense with visual blocks, number lines, and quick practice quizzes.",
+    id: "v2",
+    title: "Noah’s Ark Adventure",
+    kind: "video",
+    duration: "5:40",
+    description: "Animated Bible adventure for Sunday school kids.",
+    youtubeId: "lKc38VPvb9Y",
+    ageGroup: "Ages 5–9",
+    color: "#3D6B5A",
   },
   {
-    id: "3",
-    title: "Ethiopian Animals",
-    subject: "Science",
-    category: "Science",
-    duration: "12 min",
-    progress: 0,
-    status: "recommended",
-    teacher: "Mrs. Hana",
-    description:
-      "Discover animals of Ethiopia, their habitats, and a short matching game.",
+    id: "s1",
+    title: "This Little Light of Mine",
+    kind: "song",
+    duration: "2:28",
+    description: "Sing-along worship song with easy lyrics for children.",
+    youtubeId: "cKkbIZxqPyY",
+    ageGroup: "All ages",
+    color: "#C45C26",
   },
   {
-    id: "4",
-    title: "Story Time: The Clever Fox",
-    subject: "Reading",
-    category: "Language",
-    duration: "10 min",
-    progress: 100,
-    status: "completed",
-    teacher: "Mrs. Hana",
-    description: "Listen to a short story, answer 4 questions, and earn a reading badge.",
+    id: "s2",
+    title: "Father Abraham",
+    kind: "song",
+    duration: "3:05",
+    description: "Classic kids worship song with motions and joy.",
+    youtubeId: "yX29P5YkUzY",
+    ageGroup: "Ages 3–8",
+    color: "#D4A017",
   },
   {
-    id: "5",
-    title: "Shapes Around Us",
-    subject: "Math",
-    category: "Math",
-    duration: "14 min",
-    progress: 100,
-    status: "completed",
-    teacher: "Mr. Dawit",
-    description: "Identify circles, triangles, and rectangles in everyday objects.",
+    id: "b1",
+    title: "David and Goliath",
+    kind: "bible_story",
+    duration: "6:15",
+    description: "A kid-friendly telling of courage and trusting God.",
+    youtubeId: "uW0p6qkqYxI",
+    ageGroup: "Ages 6–11",
+    color: "#7A5C9E",
   },
   {
-    id: "6",
-    title: "Kindness in Class",
-    subject: "Social",
-    category: "Social",
-    duration: "8 min",
-    progress: 0,
-    status: "recommended",
-    teacher: "Mr. Yonas",
-    description: "A short lesson on sharing, listening, and being a good classmate.",
+    id: "b2",
+    title: "The Good Samaritan",
+    kind: "bible_story",
+    duration: "4:50",
+    description: "Learn kindness and helping others through this parable.",
+    youtubeId: "M3rcGmqOV1k",
+    ageGroup: "Ages 5–10",
+    color: "#2F9E6B",
+  },
+  {
+    id: "c1",
+    title: "Creation Days for Kids",
+    kind: "course",
+    duration: "8:20",
+    description: "Short curriculum video covering the days of creation.",
+    youtubeId: "teu7BCZTgDs",
+    ageGroup: "Ages 6–12",
+    color: "#4A6FA5",
+  },
+  {
+    id: "c2",
+    title: "Fruit of the Spirit",
+    kind: "course",
+    duration: "7:10",
+    description: "Simple teaching on love, joy, peace, and more.",
+    youtubeId: "YmQAnqtC8kI",
+    ageGroup: "Ages 7–12",
+    color: "#3D6B5A",
   },
 ];
 
-export const CATEGORIES = ["All", "Language", "Math", "Science", "Social"];
+export const COURSES: CourseItem[] = [
+  {
+    id: "course-1",
+    title: "God’s Beautiful World",
+    category: "Creation",
+    week: 2,
+    date: "September 14, 2026",
+    scripture: "Genesis 1:1–31",
+    memoryVerse: "In the beginning God created the heavens and the earth.",
+    description:
+      "Children explore creation days with pictures, songs, and a short craft.",
+    status: "this_week",
+  },
+  {
+    id: "course-2",
+    title: "Noah Obeys God",
+    category: "Bible Heroes",
+    week: 3,
+    date: "September 21, 2026",
+    scripture: "Genesis 6–9",
+    memoryVerse: "Noah did everything just as God commanded him.",
+    description: "A lesson on listening to God even when it is hard.",
+    status: "upcoming",
+  },
+  {
+    id: "course-3",
+    title: "Jesus Welcomes Children",
+    category: "Gospels",
+    week: 1,
+    date: "September 7, 2026",
+    scripture: "Mark 10:13–16",
+    memoryVerse: "Let the little children come to me.",
+    description: "Kids learn that Jesus loves and welcomes every child.",
+    status: "completed",
+  },
+  {
+    id: "course-4",
+    title: "Be Kind Like the Samaritan",
+    category: "Parables",
+    week: 4,
+    date: "September 28, 2026",
+    scripture: "Luke 10:25–37",
+    memoryVerse: "Go and do likewise.",
+    description: "Practice kindness at home, school, and church.",
+    status: "upcoming",
+  },
+];
+
+export const ATTENDANCE_HISTORY: AttendanceDay[] = [
+  {
+    id: "a1",
+    childId: "selam",
+    weekday: "Sunday",
+    date: "September 14, 2026",
+    status: "present",
+    lesson: "God’s Beautiful World",
+  },
+  {
+    id: "a2",
+    childId: "selam",
+    weekday: "Sunday",
+    date: "September 7, 2026",
+    status: "present",
+    lesson: "Jesus Welcomes Children",
+  },
+  {
+    id: "a3",
+    childId: "selam",
+    weekday: "Sunday",
+    date: "August 31, 2026",
+    status: "absent",
+    lesson: "Sharing God’s Love",
+  },
+  {
+    id: "a4",
+    childId: "selam",
+    weekday: "Sunday",
+    date: "August 24, 2026",
+    status: "present",
+    lesson: "Prayer Time",
+  },
+  {
+    id: "a5",
+    childId: "abel",
+    weekday: "Sunday",
+    date: "September 14, 2026",
+    status: "present",
+    lesson: "God’s Beautiful World",
+  },
+  {
+    id: "a6",
+    childId: "abel",
+    weekday: "Sunday",
+    date: "September 7, 2026",
+    status: "absent",
+    lesson: "Jesus Welcomes Children",
+  },
+  {
+    id: "a7",
+    childId: "abel",
+    weekday: "Sunday",
+    date: "August 31, 2026",
+    status: "present",
+    lesson: "Sharing God’s Love",
+  },
+  {
+    id: "a8",
+    childId: "abel",
+    weekday: "Sunday",
+    date: "August 24, 2026",
+    status: "present",
+    lesson: "Prayer Time",
+  },
+];
 
 export const EVENTS: EventItem[] = [
   {
     id: "e1",
-    title: "Parent-Teacher Conference",
-    date: "Aug 22, 2026",
-    time: "4:00 PM",
-    location: "Room 12, Main Building",
-    type: "school",
-    status: "registered",
+    title: "Children’s Sunday Picnic",
+    date: "September 21, 2026",
+    time: "11:30 AM",
+    location: "Church Garden",
+    audience: "Kids & Parents",
+    status: "upcoming",
     description:
-      "Meet Selam's teachers to review progress, attendance, and goals for the next term.",
+      "Games, songs, and a shared lunch after Sunday school. Families welcome.",
   },
   {
     id: "e2",
-    title: "Science Fair Preview",
-    date: "Aug 25, 2026",
-    time: "10:00 AM",
-    location: "School Hall",
-    type: "learning",
+    title: "Memory Verse Night",
+    date: "September 28, 2026",
+    time: "5:00 PM",
+    location: "Fellowship Hall",
+    audience: "Group A & B",
     status: "upcoming",
-    description: "Children present mini experiments. Parents are welcome to visit booths.",
+    description:
+      "Kids share memory verses with parents. Small prizes for participation.",
   },
   {
     id: "e3",
-    title: "Reading Circle",
-    date: "Aug 28, 2026",
-    time: "3:30 PM",
-    location: "Library",
-    type: "community",
-    status: "upcoming",
-    description: "Join a 40-minute family reading session with Amharic and English stories.",
+    title: "Parent Orientation",
+    date: "October 5, 2026",
+    time: "4:00 PM",
+    location: "Room 3",
+    audience: "Parents",
+    status: "registered",
+    description:
+      "Meet teachers, review the term curriculum, and ask questions.",
   },
   {
     id: "e4",
-    title: "Sports Day",
-    date: "Aug 10, 2026",
-    time: "9:00 AM",
-    location: "Playground",
-    type: "school",
+    title: "Kids Choir Practice",
+    date: "August 31, 2026",
+    time: "10:00 AM",
+    location: "Main Sanctuary",
+    audience: "Choir Kids",
     status: "past",
-    description: "Team games, relays, and certificates for participation.",
+    description: "Practice session for the harvest celebration songs.",
   },
 ];
 
 export const NOTIFICATIONS: NotificationItem[] = [
   {
     id: "n1",
-    title: "Lesson completed",
-    body: "Selam finished Story Time: The Clever Fox.",
-    time: "12 min ago",
-    category: "learning",
+    title: "Attendance marked",
+    body: "Selam was marked present on Sunday, September 14.",
+    time: "30 min ago",
+    category: "attendance",
     unread: true,
   },
   {
     id: "n2",
-    title: "Note from Mrs. Hana",
-    body: "Great participation in Amharic class today.",
+    title: "New message from Teacher Hana",
+    body: "Great to see Selam participating in today’s lesson!",
     time: "1 hour ago",
-    category: "teacher",
+    category: "chat",
     unread: true,
   },
   {
     id: "n3",
-    title: "Event reminder",
-    body: "Parent-Teacher Conference is on Aug 22 at 4:00 PM.",
+    title: "Upcoming event",
+    body: "Children’s Sunday Picnic is on September 21 at 11:30 AM.",
     time: "Yesterday",
     category: "events",
-    unread: false,
+    unread: true,
   },
   {
     id: "n4",
-    title: "Attendance update",
-    body: "Selam was present all week. Attendance is 96%.",
+    title: "This week’s course",
+    body: "God’s Beautiful World is ready to review at home.",
     time: "2 days ago",
-    category: "attendance",
+    category: "courses",
     unread: false,
   },
   {
     id: "n5",
-    title: "App update",
-    body: "New progress charts are available in the Progress tab.",
-    time: "3 days ago",
-    category: "system",
+    title: "Attendance reminder",
+    body: "Abel was absent on September 7. Contact teacher if needed.",
+    time: "1 week ago",
+    category: "attendance",
+    unread: false,
+  },
+  {
+    id: "n6",
+    title: "Chat reply",
+    body: "Teacher replied to your message about pickup time.",
+    time: "1 week ago",
+    category: "chat",
     unread: false,
   },
 ];
 
-export const ACTIVITIES: Activity[] = [
-  {
-    id: "a1",
-    title: "Completed Story Time",
-    time: "Today, 10:20 AM",
-    icon: "trophy-outline",
-  },
-  {
-    id: "a2",
-    title: "Continued Amharic Letters",
-    time: "Today, 9:05 AM",
-    icon: "book-outline",
-  },
-  {
-    id: "a3",
-    title: "Marked present",
-    time: "Today, 8:15 AM",
-    icon: "checkmark-circle-outline",
-  },
-  {
-    id: "a4",
-    title: "Registered for conference",
-    time: "Yesterday",
-    icon: "calendar-outline",
-  },
-];
+export const TODAY_COURSE =
+  COURSES.find((c) => c.status === "this_week") ?? COURSES[0];
 
-export const WEEKLY_ACTIVITY = [
-  { day: "Mon", value: 40 },
-  { day: "Tue", value: 70 },
-  { day: "Wed", value: 55 },
-  { day: "Thu", value: 90 },
-  { day: "Fri", value: 65 },
-  { day: "Sat", value: 30 },
-  { day: "Sun", value: 20 },
-];
+export function getMediaByKind(kind: MediaKind) {
+  return MEDIA_ITEMS.filter((item) => item.kind === kind);
+}
 
-export const SUBJECT_PROGRESS = [
-  { name: "Amharic", value: 82, color: "#6C63FF" },
-  { name: "Math", value: 74, color: "#F28C28" },
-  { name: "Science", value: 61, color: "#2BB673" },
-  { name: "Reading", value: 88, color: "#3B82F6" },
-];
+export function getAttendanceForChild(childId: string) {
+  return ATTENDANCE_HISTORY.filter((day) => day.childId === childId);
+}
 
-export const ACHIEVEMENTS = [
-  { id: "g1", title: "7-Day Streak", emoji: "🔥" },
-  { id: "g2", title: "First 10 Lessons", emoji: "📘" },
-  { id: "g3", title: "Kind Helper", emoji: "💛" },
-  { id: "g4", title: "Math Star", emoji: "⭐" },
-];
+export function getAttendanceSummaryForChild(childId: string) {
+  const days = getAttendanceForChild(childId);
+  const present = days.filter((d) => d.status === "present").length;
+  const absent = days.filter((d) => d.status === "absent").length;
+  return { present, absent, total: days.length };
+}
+
+export function getMediaItem(id: string) {
+  return MEDIA_ITEMS.find((item) => item.id === id);
+}
+
+export function getCourse(id: string) {
+  return COURSES.find((item) => item.id === id);
+}
+
+export function getEvent(id: string) {
+  return EVENTS.find((item) => item.id === id);
+}
+
+export const MEDIA_KIND_LABELS: Record<MediaKind, string> = {
+  video: "Kids Videos",
+  song: "Kids Songs",
+  bible_story: "Bible Stories",
+  course: "Curriculum Videos",
+};

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -12,51 +12,63 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
+import { LanguageToggle } from "../../components/LanguageToggle";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 
+type Role = "parent" | "teacher" | "admin";
+
+const ROLE_META: Record<
+  Role,
+  { color: string; home: "/parent" | "/teacher" | "/admin" }
+> = {
+  parent: { color: "#3D6B5A", home: "/parent" },
+  teacher: { color: "#C45C26", home: "/teacher" },
+  admin: { color: "#2D6A4F", home: "/admin" },
+};
+
 export default function Signup() {
+  const { t } = useLanguage();
+  const params = useLocalSearchParams<{ role?: string }>();
+  const role = useMemo<Role>(() => {
+    const raw = Array.isArray(params.role) ? params.role[0] : params.role;
+    if (raw === "teacher" || raw === "admin" || raw === "parent") return raw;
+    return "parent";
+  }, [params.role]);
+
+  const meta = ROLE_META[role];
+  const roleLabel = t(`role.${role}`);
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register } = useAuth();
 
   const handleSignup = () => {
     if (!fullName || !email || !phone || !password || !confirmPassword) {
-      Alert.alert("Missing information", "Please fill in all fields.");
+      Alert.alert(t("common.error"), t("signup.missing"));
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Password Error", "Passwords do not match.");
+      Alert.alert(t("common.error"), t("signup.passwordMismatch"));
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert(
-        "Password Error",
-        "Password must be at least 6 characters long."
-      );
+      Alert.alert(t("common.error"), t("signup.passwordShort"));
       return;
     }
 
-    // Backend registration will be connected here later
-    console.log({
-      fullName,
-      email,
-      phone,
-      password,
-    });
-
-    Alert.alert("Success", "Your account has been created!", [
+    Alert.alert(t("common.success"), t("signup.success", { role: roleLabel }), [
       {
-        text: "Continue",
-        onPress: () => router.replace("/parent"),
+        text: t("common.continue"),
+        onPress: () => router.replace(meta.home),
       },
     ]);
   };
@@ -70,28 +82,37 @@ export default function Signup() {
         <ScrollView
           contentContainerStyle={styles.scrollContainer}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {/* Back Button */}
+          <View style={styles.langRow}>
+            <LanguageToggle tone="dark" />
+          </View>
+
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Ionicons name="arrow-back" size={24} color="#333" />
+            <Ionicons name="arrow-back" size={24} color="#2C2A26" />
           </TouchableOpacity>
 
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Create Account</Text>
-
-            <Text style={styles.subtitle}>
-              Join Yene Lijoch and stay connected with your child's learning.
+          <View style={[styles.roleChip, { backgroundColor: `${meta.color}18` }]}>
+            <Text style={[styles.roleChipText, { color: meta.color }]}>
+              {t("signup.signingAs", { role: roleLabel })}
             </Text>
+            <TouchableOpacity onPress={() => router.replace("/(auth)/role")}>
+              <Text style={[styles.changeRole, { color: meta.color }]}>
+                {t("common.change")}
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Full Name */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Full Name</Text>
+          <View style={styles.header}>
+            <Text style={styles.title}>{t("signup.title")}</Text>
+            <Text style={styles.subtitle}>{t("signup.subtitle")}</Text>
+          </View>
 
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>{t("signup.fullName")}</Text>
             <View style={styles.inputWrapper}>
               <Ionicons
                 name="person-outline"
@@ -99,10 +120,9 @@ export default function Signup() {
                 color="#777"
                 style={styles.icon}
               />
-
               <TextInput
                 style={styles.input}
-                placeholder="Enter your full name"
+                placeholder={t("signup.fullNamePlaceholder")}
                 placeholderTextColor="#999"
                 value={fullName}
                 onChangeText={setFullName}
@@ -111,10 +131,8 @@ export default function Signup() {
             </View>
           </View>
 
-          {/* Email */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
-
+            <Text style={styles.label}>{t("signup.email")}</Text>
             <View style={styles.inputWrapper}>
               <Ionicons
                 name="mail-outline"
@@ -122,10 +140,9 @@ export default function Signup() {
                 color="#777"
                 style={styles.icon}
               />
-
               <TextInput
                 style={styles.input}
-                placeholder="Enter your email"
+                placeholder={t("signup.emailPlaceholder")}
                 placeholderTextColor="#999"
                 value={email}
                 onChangeText={setEmail}
@@ -135,10 +152,8 @@ export default function Signup() {
             </View>
           </View>
 
-          {/* Phone */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Phone Number</Text>
-
+            <Text style={styles.label}>{t("signup.phone")}</Text>
             <View style={styles.inputWrapper}>
               <Ionicons
                 name="call-outline"
@@ -146,10 +161,9 @@ export default function Signup() {
                 color="#777"
                 style={styles.icon}
               />
-
               <TextInput
                 style={styles.input}
-                placeholder="Enter your phone number"
+                placeholder={t("signup.phonePlaceholder")}
                 placeholderTextColor="#999"
                 value={phone}
                 onChangeText={setPhone}
@@ -158,10 +172,8 @@ export default function Signup() {
             </View>
           </View>
 
-          {/* Password */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-
+            <Text style={styles.label}>{t("signup.password")}</Text>
             <View style={styles.inputWrapper}>
               <Ionicons
                 name="lock-closed-outline"
@@ -169,19 +181,15 @@ export default function Signup() {
                 color="#777"
                 style={styles.icon}
               />
-
               <TextInput
                 style={styles.input}
-                placeholder="Create a password"
+                placeholder={t("signup.passwordPlaceholder")}
                 placeholderTextColor="#999"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
               />
-
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-              >
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
                   size={21}
@@ -191,10 +199,8 @@ export default function Signup() {
             </View>
           </View>
 
-          {/* Confirm Password */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Confirm Password</Text>
-
+            <Text style={styles.label}>{t("signup.confirmPassword")}</Text>
             <View style={styles.inputWrapper}>
               <Ionicons
                 name="lock-closed-outline"
@@ -202,26 +208,20 @@ export default function Signup() {
                 color="#777"
                 style={styles.icon}
               />
-
               <TextInput
                 style={styles.input}
-                placeholder="Confirm your password"
+                placeholder={t("signup.confirmPlaceholder")}
                 placeholderTextColor="#999"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry={!showConfirmPassword}
               />
-
               <TouchableOpacity
-                onPress={() =>
-                  setShowConfirmPassword(!showConfirmPassword)
-                }
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
               >
                 <Ionicons
                   name={
-                    showConfirmPassword
-                      ? "eye-off-outline"
-                      : "eye-outline"
+                    showConfirmPassword ? "eye-off-outline" : "eye-outline"
                   }
                   size={21}
                   color="#777"
@@ -230,31 +230,22 @@ export default function Signup() {
             </View>
           </View>
 
-          {/* Signup Button */}
           <TouchableOpacity
-            style={styles.signupButton}
+            style={[styles.signupButton, { backgroundColor: meta.color }]}
             onPress={handleSignup}
             activeOpacity={0.8}
           >
-            <Text style={styles.signupButtonText}>Create Account</Text>
-
-            <Ionicons
-              name="arrow-forward"
-              size={20}
-              color="#fff"
-            />
+            <Text style={styles.signupButtonText}>{t("signup.create")}</Text>
+            <Ionicons name="arrow-forward" size={20} color="#fff" />
           </TouchableOpacity>
 
-          {/* Login Link */}
           <View style={styles.loginContainer}>
-            <Text style={styles.loginText}>
-              Already have an account?
-            </Text>
-
-            <TouchableOpacity
-              onPress={() => router.replace("/(auth)/login")}
-            >
-              <Text style={styles.loginLink}> Login</Text>
+            <Text style={styles.loginText}>{t("signup.already")}</Text>
+            <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
+              <Text style={[styles.loginLink, { color: meta.color }]}>
+                {" "}
+                {t("common.login")}
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -266,15 +257,17 @@ export default function Signup() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFF9F2",
+    backgroundColor: "#F7F4EF",
   },
-
   scrollContainer: {
     paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 40,
   },
-
+  langRow: {
+    alignItems: "flex-end",
+    marginBottom: 8,
+  },
   backButton: {
     width: 44,
     height: 44,
@@ -282,70 +275,73 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 25,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 5,
-    elevation: 2,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: "#E5DFD5",
   },
-
+  roleChip: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    marginBottom: 18,
+  },
+  roleChipText: {
+    fontWeight: "800",
+    fontSize: 13,
+  },
+  changeRole: {
+    fontWeight: "700",
+    fontSize: 13,
+    textDecorationLine: "underline",
+  },
   header: {
     marginBottom: 30,
   },
-
   title: {
     fontSize: 32,
     fontWeight: "800",
-    color: "#2D2D2D",
+    color: "#2C2A26",
     marginBottom: 10,
   },
-
   subtitle: {
     fontSize: 15,
     lineHeight: 22,
-    color: "#777",
+    color: "#8A847A",
     maxWidth: 340,
   },
-
   inputContainer: {
     marginBottom: 18,
   },
-
   label: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#333",
+    color: "#2C2A26",
     marginBottom: 8,
   },
-
   inputWrapper: {
     height: 55,
     backgroundColor: "#FFFFFF",
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#E8E1D8",
+    borderColor: "#E5DFD5",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 15,
   },
-
   icon: {
     marginRight: 10,
   },
-
   input: {
     flex: 1,
     fontSize: 15,
-    color: "#333",
+    color: "#2C2A26",
   },
-
   signupButton: {
     height: 56,
-    backgroundColor: "#F28C28",
     borderRadius: 15,
     flexDirection: "row",
     justifyContent: "center",
@@ -353,26 +349,21 @@ const styles = StyleSheet.create({
     marginTop: 12,
     gap: 10,
   },
-
   signupButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "800",
   },
-
   loginContainer: {
     flexDirection: "row",
     justifyContent: "center",
     marginTop: 25,
   },
-
   loginText: {
-    color: "#777",
+    color: "#8A847A",
     fontSize: 14,
   },
-
   loginLink: {
-    color: "#F28C28",
     fontSize: 14,
     fontWeight: "800",
   },

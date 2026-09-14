@@ -3,83 +3,128 @@ import { Text, StyleSheet, Alert } from "react-native";
 import { router } from "expo-router";
 import {
   Screen,
-  TopBar,
-  Card,
-  PersonAvatar,
-  MenuRow,
-} from "../../../components/parent/ui";
-import { TEACHER, CLASSES, TEACHER_UPDATES } from "../../../data/teacherMock";
-import { ParentColors as C } from "../../../constants/parentTheme";
+  SoftCard,
+  AvatarBubble,
+} from "../../../components/teacher/ui";
+import { LanguageToggle } from "../../../components/LanguageToggle";
+import { TEACHER, STUDENTS } from "../../../data/teacherMock";
+import { TeacherColors as C } from "../../../constants/teacherTheme";
+import { useLanguage } from "../../../contexts/LanguageContext";
+import { Ionicons } from "@expo/vector-icons";
+import { TouchableOpacity, View } from "react-native";
 
 export default function TeacherProfileScreen() {
-  const unread = TEACHER_UPDATES.filter((u) => u.unread).length;
+  const { t } = useLanguage();
 
   return (
     <Screen>
-      <TopBar
-        title="Profile"
-        subtitle="Teacher account and settings"
-        unread={unread}
-        bellHref="/teacher/updates"
-      />
+      <View style={styles.langRow}>
+        <LanguageToggle tone="dark" />
+      </View>
 
-      <Card style={styles.hero}>
-        <PersonAvatar initials="HB" color={C.accent} size={64} />
+      <Text style={styles.title}>{t("teacher.profileTitle")}</Text>
+      <Text style={styles.subtitle}>Teacher account and settings</Text>
+
+      <SoftCard style={styles.hero}>
+        <AvatarBubble initials="HB" color={C.primary} size={72} />
         <Text style={styles.name}>{TEACHER.name}</Text>
         <Text style={styles.meta}>{TEACHER.title}</Text>
         <Text style={styles.meta}>
-          {TEACHER.subject} · {CLASSES.length} classes
+          {TEACHER.program} · {TEACHER.group}
         </Text>
-      </Card>
+        <Text style={styles.meta}>
+          {STUDENTS.length} {t("teacher.studentsSub")}
+        </Text>
+      </SoftCard>
 
-      <Card style={{ marginTop: 16 }}>
-        <MenuRow
+      <SoftCard style={{ marginTop: 16 }}>
+        <Menu
           icon="person-outline"
           title="Teacher Information"
-          subtitle="Name, email, and subject"
           onPress={() => router.push("/teacher/profile/info")}
         />
-        <MenuRow
+        <Menu
           icon="settings-outline"
           title="Settings"
-          subtitle="Password and privacy"
           onPress={() => router.push("/teacher/profile/settings")}
         />
-        <MenuRow
+        <Menu
           icon="globe-outline"
-          title="Language"
-          subtitle="English"
+          title={t("common.language")}
           onPress={() => router.push("/teacher/profile/language")}
         />
-        <MenuRow
+        <Menu
           icon="help-circle-outline"
           title="Help & Support"
-          subtitle="FAQs and contact"
           onPress={() => router.push("/teacher/profile/help")}
         />
-        <MenuRow
+        <Menu
           icon="log-out-outline"
-          title="Logout"
-          subtitle="Return to login"
+          title={t("parent.logout")}
           danger
           onPress={() =>
-            Alert.alert("Logout", "Are you sure you want to log out?", [
-              { text: "Cancel", style: "cancel" },
+            Alert.alert(t("parent.logout"), t("parent.logout"), [
+              { text: t("common.cancel"), style: "cancel" },
               {
-                text: "Logout",
+                text: t("parent.logout"),
                 style: "destructive",
                 onPress: () => router.replace("/(auth)/login"),
               },
             ])
           }
         />
-      </Card>
+      </SoftCard>
     </Screen>
   );
 }
 
+function Menu({
+  icon,
+  title,
+  onPress,
+  danger,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  onPress: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <TouchableOpacity style={styles.menu} onPress={onPress} activeOpacity={0.8}>
+      <View style={[styles.menuIcon, danger && { backgroundColor: "#FDECEC" }]}>
+        <Ionicons name={icon} size={20} color={danger ? C.danger : C.primary} />
+      </View>
+      <Text style={[styles.menuTitle, danger && { color: C.danger }]}>{title}</Text>
+      <Ionicons name="chevron-forward" size={18} color={C.muted} />
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
+  langRow: {
+    alignItems: "flex-end",
+    marginBottom: 8,
+  },
+  title: { fontSize: 28, fontWeight: "700", color: C.text, letterSpacing: -0.4 },
+  subtitle: { marginTop: 6, color: C.muted, fontSize: 14, marginBottom: 8 },
   hero: { alignItems: "center", paddingVertical: 24 },
-  name: { marginTop: 12, fontSize: 20, fontWeight: "800", color: C.text },
+  name: { marginTop: 12, fontSize: 20, fontWeight: "700", color: C.text },
   meta: { marginTop: 4, color: C.muted },
+  menu: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  menuIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: C.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuTitle: { flex: 1, fontSize: 15, fontWeight: "600", color: C.text },
 });

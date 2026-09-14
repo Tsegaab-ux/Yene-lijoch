@@ -13,6 +13,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoleNavigation } from "@/hooks/useRoleNavigation";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { LanguageToggle } from "@/components/LanguageToggle";
 
 // Define error response type
 interface ErrorResponse {
@@ -25,6 +27,7 @@ interface ErrorResponse {
 }
 
 export default function LoginScreen(): React.ReactElement {
+  const { t } = useLanguage();
   const { navigateBasedOnRole, getDashboardRoute } = useRoleNavigation()
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
@@ -86,6 +89,10 @@ export default function LoginScreen(): React.ReactElement {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.langRow}>
+        <LanguageToggle tone="dark" />
+      </View>
+
       <View style={styles.content}>
         {/* Header */}
         <Text style={styles.title}>Welcome Back 👋</Text>
@@ -107,7 +114,7 @@ export default function LoginScreen(): React.ReactElement {
 
           <TextInput
             style={styles.input}
-            placeholder="Enter your username"
+            placeholder={t("login.emailPlaceholder")}
             placeholderTextColor="#999"
             autoCapitalize="none"
             autoCorrect={false}
@@ -117,8 +124,7 @@ export default function LoginScreen(): React.ReactElement {
           />
         </View>
 
-        {/* Password */}
-        <Text style={styles.label}>Password</Text>
+        <Text style={styles.label}>{t("login.password")}</Text>
 
         <View style={styles.inputWrapper}>
           <Ionicons
@@ -130,7 +136,7 @@ export default function LoginScreen(): React.ReactElement {
 
           <TextInput
             style={styles.input}
-            placeholder="Enter your password"
+            placeholder={t("login.passwordPlaceholder")}
             placeholderTextColor="#999"
             secureTextEntry={!showPassword}
             value={password}
@@ -151,40 +157,28 @@ export default function LoginScreen(): React.ReactElement {
           </TouchableOpacity>
         </View>
 
-        {/* Forgot Password */}
         <TouchableOpacity
           style={styles.forgot}
           onPress={() => router.push("/(auth)/forgot-password")}
-          disabled={isLoading}
         >
-          <Text style={styles.forgotText}>Forgot Password?</Text>
+          <Text style={styles.forgotText}>{t("login.forgot")}</Text>
         </TouchableOpacity>
 
-        {/* Login Button */}
         <TouchableOpacity
           style={[styles.button, isLoading && styles.buttonDisabled]}
           onPress={handleLogin}
           activeOpacity={0.8}
           disabled={isLoading}
         >
-          {isLoading ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <>
-              <Text style={styles.buttonText}>Login</Text>
-              <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-            </>
-          )}
+          <Text style={styles.buttonText}>{t("login.login")}</Text>
+
+          <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
         </TouchableOpacity>
 
-        {/* Signup */}
-        <TouchableOpacity
-          onPress={() => router.push("/(auth)/signup")}
-          disabled={isLoading}
-        >
+        <TouchableOpacity onPress={() => router.push("/(auth)/role")}>
           <Text style={styles.signup}>
-            Don't have an account?{" "}
-            <Text style={styles.signupBold}>Sign Up</Text>
+            {t("login.noAccount")}{" "}
+            <Text style={styles.signupBold}>{t("common.signup")}</Text>
           </Text>
         </TouchableOpacity>
       </View>
@@ -196,6 +190,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFF9F1",
+  },
+
+  langRow: {
+    paddingHorizontal: 30,
+    paddingTop: 8,
+    alignItems: "flex-end",
   },
 
   content: {
