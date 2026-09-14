@@ -1,149 +1,185 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Screen,
-  TopBar,
-  Card,
-  SectionHeader,
-  StatCard,
-  goAdmin,
+  SoftCard,
+  SectionLabel,
+  MenuRow,
 } from "../../components/admin/ui";
-import { useAdminData } from "../../contexts/AdminDataContext";
-import { ADMIN } from "../../data/adminMock";
+import { ADMIN_PROFILE } from "../../data/sharedContent";
 import { AdminColors as C } from "../../constants/adminTheme";
+import { useSharedContent } from "../../contexts/SharedContentContext";
+import { useChat } from "../../contexts/ChatContext";
 
 export default function AdminHome() {
-  const { teachers, children, classes, events, lessons } = useAdminData();
-  const activeTeachers = teachers.filter((t) => t.status === "active").length;
-  const parentEvents = events.filter((e) => e.notifyParents).length;
+  const {
+    media,
+    curriculum,
+    students,
+    groups,
+    events,
+    adminNotices,
+  } = useSharedContent();
+  const { teacherMessages } = useChat();
+  const unread =
+    adminNotices.filter((n) => n.unread).length +
+    teacherMessages.slice(0, 5).length;
 
   return (
     <Screen>
-      <TopBar
-        title={`Admin · ${ADMIN.name.split(" ")[0]}`}
-        subtitle={ADMIN.school}
-      />
-
-      <Card style={styles.hero}>
-        <Text style={styles.heroTitle}>School Control Center</Text>
-        <Text style={styles.heroSub}>
-          Manage teachers, children, classes, events, and lesson progress.
-        </Text>
-      </Card>
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.kicker}>Admin</Text>
+          <Text style={styles.title}>Hi, {ADMIN_PROFILE.name.split(" ")[0]}</Text>
+          <Text style={styles.sub}>{ADMIN_PROFILE.school}</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.bell}
+          onPress={() => router.push("/admin/notifications" as any)}
+        >
+          <Ionicons name="notifications-outline" size={20} color={C.text} />
+          {unread > 0 ? <View style={styles.dot} /> : null}
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.stats}>
-        <StatCard
-          label="Teachers"
-          value={`${activeTeachers}/${teachers.length}`}
-          icon="school-outline"
-          onPress={() => router.push("/admin/teachers")}
+        <Stat label="Videos" value={`${media.length}`} />
+        <Stat label="Lessons" value={`${curriculum.length}`} />
+        <Stat label="Students" value={`${students.length}`} />
+        <Stat label="Events" value={`${events.length}`} />
+      </View>
+
+      <SectionLabel title="Manage parent content" />
+      <SoftCard>
+        <MenuRow
+          icon="videocam-outline"
+          title="Upload videos"
+          subtitle="Kids videos, songs, Bible stories"
+          onPress={() => router.push("/admin/videos" as any)}
         />
-        <StatCard
-          label="Children"
-          value={`${children.length}`}
-          icon="happy-outline"
-          onPress={() => router.push("/admin/children")}
+        <MenuRow
+          icon="book-outline"
+          title="Yearly curriculum"
+          subtitle="Set lesson titles and dates"
+          onPress={() => router.push("/admin/curriculum" as any)}
         />
-        <StatCard
-          label="Classes"
-          value={`${classes.length}`}
+        <MenuRow
           icon="people-outline"
-          onPress={() => router.push("/admin/classes")}
+          title="Groups & students"
+          subtitle={`${groups.length} groups · attendance roster`}
+          onPress={() => router.push("/admin/groups" as any)}
         />
-        <StatCard
-          label="Events"
-          value={`${parentEvents}`}
+        <MenuRow
           icon="calendar-outline"
-          onPress={() => router.push("/admin/more/events")}
+          title="Events"
+          subtitle="Publish kids upcoming events"
+          onPress={() => router.push("/admin/events" as any)}
         />
-      </View>
+        <MenuRow
+          icon="chatbubbles-outline"
+          title="Teacher chat alerts"
+          subtitle="Messages appear in notifications"
+          onPress={() => router.push("/admin/notifications" as any)}
+        />
+      </SoftCard>
 
-      <SectionHeader title="Quick Actions" />
-      <View style={styles.actions}>
-        <Action icon="person-add-outline" label="Add Teacher" onPress={() => goAdmin("/admin/teachers/add")} />
-        <Action icon="add-circle-outline" label="Add Child" onPress={() => goAdmin("/admin/children/add")} />
-        <Action icon="link-outline" label="Assign Class" onPress={() => router.push("/admin/classes")} />
-        <Action icon="megaphone-outline" label="Add Event" onPress={() => goAdmin("/admin/more/events/add")} />
-      </View>
-
-      <SectionHeader
-        title="Recent Events"
-        action="See all"
-        onPress={() => goAdmin("/admin/more/events")}
-      />
-      {events.slice(0, 2).map((event) => (
-        <Card key={event.id} style={styles.listCard}>
-          <Text style={styles.kicker}>{event.audience}</Text>
-          <Text style={styles.cardTitle}>{event.title}</Text>
-          <Text style={styles.meta}>
-            {event.date} · {event.time}
-          </Text>
-          {event.notifyParents ? (
-            <Text style={styles.notify}>Parents will be notified</Text>
-          ) : null}
-        </Card>
+      <SectionLabel title="Recent admin activity" />
+      {adminNotices.slice(0, 4).map((n) => (
+        <SoftCard key={n.id} style={styles.notice}>
+          <Text style={styles.noticeTitle}>{n.title}</Text>
+          <Text style={styles.noticeBody}>{n.body}</Text>
+          <Text style={styles.noticeTime}>{n.time}</Text>
+        </SoftCard>
       ))}
 
-      <SectionHeader
-        title="Lesson Progress"
-        action="Manage"
-        onPress={() => goAdmin("/admin/more/lessons")}
-      />
-      {lessons.slice(0, 2).map((lesson) => (
-        <Card key={lesson.id} style={styles.listCard}>
-          <Text style={styles.cardTitle}>{lesson.title}</Text>
-          <Text style={styles.meta}>
-            {lesson.subject} · {lesson.progress}% · {lesson.status}
-          </Text>
-        </Card>
-      ))}
+      <SoftCard
+        style={{ marginTop: 8 }}
+        onPress={() =>
+          Alert.alert("Logout", "Return to login?", [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Logout",
+              style: "destructive",
+              onPress: () => router.replace("/(auth)/login"),
+            },
+          ])
+        }
+      >
+        <Text style={styles.logout}>Logout</Text>
+      </SoftCard>
     </Screen>
   );
 }
 
-function Action({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-}) {
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <TouchableOpacity style={styles.action} onPress={onPress}>
-      <View style={styles.actionIcon}>
-        <Ionicons name={icon} size={20} color={C.primary} />
-      </View>
-      <Text style={styles.actionLabel}>{label}</Text>
-    </TouchableOpacity>
+    <View style={styles.stat}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { backgroundColor: C.primarySoft, borderColor: C.accentSoft },
-  heroTitle: { fontSize: 18, fontWeight: "800", color: C.text },
-  heroSub: { marginTop: 6, color: C.muted, lineHeight: 20 },
-  stats: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 14 },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  action: { width: "47%", alignItems: "center", marginBottom: 8 },
-  actionIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.border,
+  header: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  kicker: {
+    color: C.muted,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  title: {
+    marginTop: 4,
+    fontSize: 28,
+    fontWeight: "800",
+    color: C.text,
+    letterSpacing: -0.4,
+  },
+  sub: { marginTop: 4, color: C.muted, fontSize: 14 },
+  bell: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: C.primarySoft,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
   },
-  actionLabel: { fontSize: 12, fontWeight: "700", color: C.text, textAlign: "center" },
-  listCard: { marginBottom: 10 },
-  kicker: { color: C.primary, fontWeight: "800", fontSize: 12, textTransform: "capitalize", marginBottom: 4 },
-  cardTitle: { fontSize: 16, fontWeight: "800", color: C.text },
-  meta: { marginTop: 4, color: C.muted, fontSize: 13 },
-  notify: { marginTop: 6, color: C.success, fontWeight: "700", fontSize: 12 },
+  dot: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.danger,
+  },
+  stats: { flexDirection: "row", gap: 8, marginBottom: 8 },
+  stat: {
+    flex: 1,
+    backgroundColor: C.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  statValue: { fontSize: 18, fontWeight: "800", color: C.primary },
+  statLabel: { marginTop: 2, fontSize: 11, color: C.muted, fontWeight: "600" },
+  notice: { marginBottom: 10 },
+  noticeTitle: { fontWeight: "800", color: C.text, fontSize: 14 },
+  noticeBody: { marginTop: 4, color: C.muted, fontSize: 13, lineHeight: 18 },
+  noticeTime: { marginTop: 6, color: C.muted, fontSize: 11 },
+  logout: {
+    textAlign: "center",
+    color: C.danger,
+    fontWeight: "800",
+    fontSize: 15,
+  },
 });

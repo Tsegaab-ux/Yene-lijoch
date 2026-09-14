@@ -1,8 +1,9 @@
 import React from "react";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { AdminDataProvider } from "../../contexts/AdminDataContext";
+import { Platform } from "react-native";
 import { AdminColors as C } from "../../constants/adminTheme";
+import { AdminDataProvider } from "../../contexts/AdminDataContext";
 
 export default function AdminLayout() {
   return (
@@ -15,59 +16,88 @@ export default function AdminLayout() {
           tabBarStyle: {
             backgroundColor: "#FFFFFF",
             borderTopColor: C.border,
-            height: 64,
-            paddingBottom: 8,
+            borderTopWidth: 1,
+            height: Platform.OS === "ios" ? 84 : 68,
+            paddingBottom: Platform.OS === "ios" ? 24 : 10,
             paddingTop: 8,
           },
-          tabBarLabelStyle: { fontSize: 11, fontWeight: "700" },
+          tabBarLabelStyle: { fontSize: 11, fontWeight: "600", marginTop: 2 },
         }}
       >
-        <Tabs.Screen
-          name="index"
-          options={{
-            title: "Home",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="grid-outline" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="teachers"
-          options={{
-            title: "Teachers",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="school-outline" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="children"
-          options={{
-            title: "Children",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="happy-outline" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="classes"
-          options={{
-            title: "Classes",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="people-outline" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="more"
-          options={{
-            title: "More",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="ellipsis-horizontal" size={size} color={color} />
-            ),
-          }}
-        />
-      </Tabs>
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Home",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "home" : "home-outline"}
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="videos"
+        options={{
+          title: "Videos",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "videocam" : "videocam-outline"}
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="curriculum"
+        options={{
+          title: "Curriculum",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "book" : "book-outline"}
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="groups"
+        options={{
+          title: "Groups",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "people" : "people-outline"}
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="events"
+        options={{
+          title: "Events",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "calendar" : "calendar-outline"}
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{ href: null, title: "Notifications" }}
+      />
+      <Tabs.Screen name="teachers" options={{ href: null }} />
+      <Tabs.Screen name="children" options={{ href: null }} />
+      <Tabs.Screen name="classes" options={{ href: null }} />
+      <Tabs.Screen name="more" options={{ href: null }} />
+    </Tabs>
     </AdminDataProvider>
   );
 }

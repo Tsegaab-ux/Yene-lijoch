@@ -1,7 +1,13 @@
 import { Stack } from "expo-router";
+import { SharedContentProvider } from "../contexts/SharedContentContext";
+import { ChatProvider } from "../contexts/ChatContext";
 
 export default function RootLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }} />
+    <SharedContentProvider>
+      <ChatProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </ChatProvider>
+    </SharedContentProvider>
   );
 }

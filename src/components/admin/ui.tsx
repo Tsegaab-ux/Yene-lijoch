@@ -8,6 +8,8 @@ import {
   SafeAreaView,
   StyleProp,
   ViewStyle,
+  Platform,
+  TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -23,14 +25,47 @@ export function Screen({
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
-        contentContainerStyle={[styles.scroll, padded && { paddingHorizontal: 20 }]}
+        contentContainerStyle={[
+          styles.scroll,
+          padded && { paddingHorizontal: 20 },
+        ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {children}
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+export function SectionLabel({ title }: { title: string }) {
+  return <Text style={styles.sectionLabel}>{title}</Text>;
+}
+
+export function SoftCard({
+  children,
+  style,
+  onPress,
+}: {
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+  onPress?: () => void;
+}) {
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        style={[styles.card, style]}
+        onPress={onPress}
+        activeOpacity={0.88}
+      >
+        {children}
+      </TouchableOpacity>
+    );
+  }
+  return <View style={[styles.card, style]}>{children}</View>;
+}
+
+export const Card = SoftCard;
 
 export function TopBar({
   title,
@@ -50,7 +85,7 @@ export function TopBar({
       <View style={styles.topLeft}>
         {onBack ? (
           <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-            <Ionicons name="arrow-back" size={22} color={C.text} />
+            <Ionicons name="chevron-back" size={22} color={C.text} />
           </TouchableOpacity>
         ) : null}
         <View style={{ flex: 1 }}>
@@ -67,123 +102,52 @@ export function TopBar({
   );
 }
 
-export function Card({
-  children,
-  style,
+export function PrimaryButton({
+  label,
   onPress,
+  icon,
 }: {
-  children: React.ReactNode;
-  style?: StyleProp<ViewStyle>;
-  onPress?: () => void;
-}) {
-  if (onPress) {
-    return (
-      <TouchableOpacity style={[styles.card, style]} onPress={onPress} activeOpacity={0.85}>
-        {children}
-      </TouchableOpacity>
-    );
-  }
-  return <View style={[styles.card, style]}>{children}</View>;
-}
-
-export function SectionHeader({
-  title,
-  action,
-  onPress,
-}: {
-  title: string;
-  action?: string;
-  onPress?: () => void;
+  label: string;
+  onPress: () => void;
+  icon?: keyof typeof Ionicons.glyphMap;
 }) {
   return (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {action ? (
-        <TouchableOpacity onPress={onPress}>
-          <Text style={styles.sectionAction}>{action}</Text>
-        </TouchableOpacity>
-      ) : null}
-    </View>
+    <TouchableOpacity
+      style={styles.primaryBtn}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      {icon ? <Ionicons name={icon} size={18} color="#fff" /> : null}
+      <Text style={styles.primaryBtnText}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
-export function StatCard({
+export function Field({
   label,
   value,
-  icon,
-  onPress,
+  onChangeText,
+  placeholder,
+  multiline,
 }: {
   label: string;
   value: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  onPress?: () => void;
+  onChangeText: (t: string) => void;
+  placeholder?: string;
+  multiline?: boolean;
 }) {
   return (
-    <Card style={styles.statCard} onPress={onPress}>
-      <View style={styles.statIcon}>
-        <Ionicons name={icon} size={20} color={C.primary} />
-      </View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </Card>
-  );
-}
-
-export function Badge({
-  label,
-  tone = "default",
-}: {
-  label: string;
-  tone?: "default" | "success" | "danger" | "warning";
-}) {
-  const bg =
-    tone === "success"
-      ? C.successSoft
-      : tone === "danger"
-        ? "#FDECEC"
-        : tone === "warning"
-          ? "#FFF8E6"
-          : C.primarySoft;
-  const color =
-    tone === "success"
-      ? C.success
-      : tone === "danger"
-        ? C.danger
-        : tone === "warning"
-          ? "#B7791F"
-          : C.primary;
-
-  return (
-    <View style={[styles.badge, { backgroundColor: bg }]}>
-      <Text style={[styles.badgeText, { color }]}>{label}</Text>
+    <View style={{ marginBottom: 12 }}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput
+        style={[styles.input, multiline && styles.inputMulti]}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={C.muted}
+        multiline={multiline}
+      />
     </View>
-  );
-}
-
-export function MenuRow({
-  icon,
-  title,
-  subtitle,
-  onPress,
-  danger,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  subtitle?: string;
-  onPress?: () => void;
-  danger?: boolean;
-}) {
-  return (
-    <TouchableOpacity style={styles.menuRow} onPress={onPress} activeOpacity={0.8}>
-      <View style={[styles.menuIcon, danger && { backgroundColor: "#FDECEC" }]}>
-        <Ionicons name={icon} size={20} color={danger ? C.danger : C.primary} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.menuTitle, danger && { color: C.danger }]}>{title}</Text>
-        {subtitle ? <Text style={styles.menuSub}>{subtitle}</Text> : null}
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={C.muted} />
-    </TouchableOpacity>
   );
 }
 
@@ -198,93 +162,141 @@ export function Pill({
 }) {
   return (
     <TouchableOpacity
-      onPress={onPress}
       style={[styles.pill, active && styles.pillActive]}
+      onPress={onPress}
+      activeOpacity={0.85}
     >
-      <Text style={[styles.pillText, active && styles.pillTextActive]}>{label}</Text>
+      <Text style={[styles.pillText, active && styles.pillTextActive]}>
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }
 
-export function ProgressBar({ value, color = C.primary }: { value: number; color?: string }) {
+export function MenuRow({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  danger,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle?: string;
+  onPress: () => void;
+  danger?: boolean;
+}) {
   return (
-    <View style={styles.barTrack}>
+    <TouchableOpacity style={styles.menuRow} onPress={onPress} activeOpacity={0.85}>
       <View
-        style={[styles.barFill, { width: `${Math.min(value, 100)}%`, backgroundColor: color }]}
-      />
-    </View>
+        style={[styles.menuIcon, danger && { backgroundColor: "#FCE8E8" }]}
+      >
+        <Ionicons name={icon} size={18} color={danger ? C.danger : C.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.menuTitle, danger && { color: C.danger }]}>
+          {title}
+        </Text>
+        {subtitle ? <Text style={styles.menuSub}>{subtitle}</Text> : null}
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={C.muted} />
+    </TouchableOpacity>
   );
-}
-
-export function goAdmin(path: string) {
-  router.push(path as any);
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
-  scroll: { paddingTop: 8, paddingBottom: 32 },
-  topBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 18,
-    gap: 10,
+  scroll: { paddingTop: 12, paddingBottom: 36 },
+  sectionLabel: {
+    marginTop: 18,
+    marginBottom: 10,
+    fontSize: 12,
+    fontWeight: "700",
+    color: C.muted,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
-  topLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: C.card,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  topTitle: { fontSize: 24, fontWeight: "800", color: C.text },
-  topSubtitle: { marginTop: 2, color: C.muted, fontSize: 13 },
-  actionBtn: {
-    backgroundColor: C.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  actionText: { color: "#fff", fontWeight: "800", fontSize: 13 },
   card: {
     backgroundColor: C.card,
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
     borderColor: C.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#1B2B23",
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+      },
+      android: { elevation: 2 },
+      default: {},
+    }),
   },
-  sectionHeader: {
+  topBar: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 22,
-    marginBottom: 12,
+    justifyContent: "space-between",
+    marginBottom: 16,
+    gap: 10,
   },
-  sectionTitle: { fontSize: 17, fontWeight: "800", color: C.text },
-  sectionAction: { color: C.primary, fontWeight: "700", fontSize: 13 },
-  statCard: { flex: 1, minWidth: "47%" },
-  statIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+  topLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: C.primarySoft,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
   },
-  statValue: { fontSize: 22, fontWeight: "800", color: C.text },
-  statLabel: { marginTop: 4, color: C.muted, fontSize: 12, fontWeight: "600" },
-  badge: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  topTitle: { fontSize: 22, fontWeight: "700", color: C.text },
+  topSubtitle: { marginTop: 2, color: C.muted, fontSize: 13 },
+  actionBtn: {
+    backgroundColor: C.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  actionText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  primaryBtn: {
+    marginTop: 8,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: C.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  primaryBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  fieldLabel: {
+    fontWeight: "700",
+    color: C.text,
+    marginBottom: 8,
+    fontSize: 13,
+  },
+  input: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    color: C.text,
+    backgroundColor: "#fff",
+  },
+  inputMulti: { height: 90, paddingTop: 12, textAlignVertical: "top" },
+  pill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 999,
+    backgroundColor: C.primarySoft,
+    borderWidth: 1,
+    borderColor: C.border,
+    marginRight: 8,
   },
-  badgeText: { fontSize: 11, fontWeight: "800", textTransform: "capitalize" },
+  pillActive: { backgroundColor: C.primary, borderColor: C.primary },
+  pillText: { fontWeight: "700", fontSize: 12, color: C.muted },
+  pillTextActive: { color: "#fff" },
   menuRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -294,33 +306,13 @@ const styles = StyleSheet.create({
     borderBottomColor: C.border,
   },
   menuIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: C.primarySoft,
     alignItems: "center",
     justifyContent: "center",
   },
-  menuTitle: { fontSize: 15, fontWeight: "700", color: C.text },
-  menuSub: { marginTop: 2, color: C.muted, fontSize: 12 },
-  barTrack: {
-    height: 8,
-    backgroundColor: C.primarySoft,
-    borderRadius: 8,
-    overflow: "hidden",
-  },
-  barFill: { height: 8, borderRadius: 8 },
-  pill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.border,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  pillActive: { backgroundColor: C.primary, borderColor: C.primary },
-  pillText: { color: C.muted, fontWeight: "700", fontSize: 13 },
-  pillTextActive: { color: "#fff" },
+  menuTitle: { fontSize: 15, fontWeight: "600", color: C.text },
+  menuSub: { marginTop: 2, fontSize: 12, color: C.muted },
 });

@@ -29,7 +29,7 @@ const IMAGES = {
 export default function TeacherHome() {
   const { events } = useTeacherEvents();
   const { conversations } = useChat();
-  const { students } = useTeacherStudents();
+  const { students, attendanceWeekday, attendanceDate } = useTeacherStudents();
   const attendance = getAttendanceSummary(students);
   const nextLesson =
     CURRICULUM.find((l) => l.status === "upcoming") ?? CURRICULUM[1];
@@ -90,7 +90,8 @@ export default function TeacherHome() {
       </ImageSectionCard>
 
       <SectionLabel title="Today's Students" />
-      <ImageSectionCard image={IMAGES.students} height={230}>
+      <ImageSectionCard image={IMAGES.students} height={250}>
+        <ImageChip label={`${attendanceWeekday} · ${attendanceDate}`} />
         <Text style={styles.title}>{attendance.total} Students</Text>
         <View style={styles.attRow}>
           <Text style={styles.stat}>

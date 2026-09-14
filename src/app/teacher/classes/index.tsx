@@ -20,7 +20,7 @@ import { TeacherColors as C } from "../../../constants/teacherTheme";
 import { useTeacherStudents } from "../../../contexts/TeacherStudentsContext";
 
 export default function StudentsScreen() {
-  const { students } = useTeacherStudents();
+  const { students, attendanceLabel } = useTeacherStudents();
   const [query, setQuery] = useState("");
   const summary = useMemo(() => getAttendanceSummary(students), [students]);
 
@@ -54,6 +54,10 @@ export default function StudentsScreen() {
 
       <SoftCard style={styles.summaryCard}>
         <Text style={styles.summaryTitle}>Today's Attendance</Text>
+        <View style={styles.dateRow}>
+          <Ionicons name="calendar-outline" size={16} color={C.primary} />
+          <Text style={styles.dateText}>{attendanceLabel}</Text>
+        </View>
         <View style={styles.summaryRow}>
           <SummaryItem value={`${summary.present}`} label="Present" tone="success" />
           <SummaryItem value={`${summary.absent}`} label="Absent" tone="danger" />
@@ -188,7 +192,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: C.text,
+    marginBottom: 10,
+  },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     marginBottom: 14,
+    backgroundColor: C.primarySoft,
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  dateText: {
+    color: C.primary,
+    fontWeight: "700",
+    fontSize: 13,
   },
   summaryRow: {
     flexDirection: "row",

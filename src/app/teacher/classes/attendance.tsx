@@ -17,18 +17,43 @@ import {
   BackHeader,
   PrimaryButton,
 } from "../../../components/teacher/ui";
-import { ATTENDANCE_DATE, SundayStudent } from "../../../data/teacherMock";
+import { SundayStudent } from "../../../data/teacherMock";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
 import { useTeacherStudents } from "../../../contexts/TeacherStudentsContext";
 
 type Mark = "present" | "absent";
 
+const WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
 export default function AttendanceScreen() {
-  const { students, addStudent, updateAttendance } = useTeacherStudents();
+  const {
+    students,
+    addStudent,
+    updateAttendance,
+    attendanceWeekday,
+    attendanceDate,
+    attendanceLabel,
+    setAttendanceDay,
+  } = useTeacherStudents();
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState("");
   const [parent, setParent] = useState("");
+  const [weekdayDraft, setWeekdayDraft] = useState(attendanceWeekday);
+  const [dateDraft, setDateDraft] = useState(attendanceDate);
   const [marks, setMarks] = useState<Record<string, Mark>>({});
+
+  useEffect(() => {
+    setWeekdayDraft(attendanceWeekday);
+    setDateDraft(attendanceDate);
+  }, [attendanceWeekday, attendanceDate]);
 
   useEffect(() => {
     setMarks((prev) => {
@@ -64,6 +89,15 @@ export default function AttendanceScreen() {
     }));
   };
 
+  const handleSaveDate = () => {
+    if (!dateDraft.trim()) {
+      Alert.alert("Missing date", "Please enter the attendance date.");
+      return;
+    }
+    setAttendanceDay(weekdayDraft, dateDraft);
+    Alert.alert("Date saved", `Attendance date set to ${weekdayDraft}, ${dateDraft}.`);
+  };
+
   const handleAddStudent = () => {
     if (!name.trim()) {
       Alert.alert("Missing name", "Please enter the student’s name.");
@@ -84,7 +118,54 @@ export default function AttendanceScreen() {
 
   return (
     <Screen>
-      <BackHeader title="Attendance" subtitle={ATTENDANCE_DATE} />
+      <BackHeader title="Attendance" subtitle={attendanceLabel} />
+
+      <SoftCard style={styles.dateCard}>
+        <View style={styles.dateHeader}>
+          <Ionicons name="calendar-outline" size={18} color={C.primary} />
+          <Text style={styles.dateCardTitle}>Set attendance date</Text>
+        </View>
+        <Text style={styles.dateHint}>
+          Fill in the day and date yourself for this attendance session.
+        </Text>
+
+        <Text style={styles.label}>Day</Text>
+        <View style={styles.weekdayRow}>
+          {WEEKDAYS.map((day) => {
+            const active = weekdayDraft === day;
+            return (
+              <TouchableOpacity
+                key={day}
+                style={[styles.weekdayChip, active && styles.weekdayChipActive]}
+                onPress={() => setWeekdayDraft(day)}
+              >
+                <Text
+                  style={[
+                    styles.weekdayChipText,
+                    active && styles.weekdayChipTextActive,
+                  ]}
+                >
+                  {day.slice(0, 3)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <Text style={styles.label}>Date</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. September 14, 2026"
+          placeholderTextColor={C.muted}
+          value={dateDraft}
+          onChangeText={setDateDraft}
+        />
+
+        <TouchableOpacity style={styles.saveDateBtn} onPress={handleSaveDate}>
+          <Ionicons name="checkmark" size={18} color="#fff" />
+          <Text style={styles.saveDateText}>Save Date</Text>
+        </TouchableOpacity>
+      </SoftCard>
 
       <View style={styles.topRow}>
         <Text style={styles.count}>{summary.total} Students</Text>
@@ -124,10 +205,11 @@ export default function AttendanceScreen() {
         label="Save Attendance"
         icon="checkmark-done-outline"
         onPress={() => {
+          setAttendanceDay(weekdayDraft, dateDraft);
           updateAttendance(marks);
           Alert.alert(
             "Attendance saved",
-            `${summary.present} present · ${summary.absent} absent`,
+            `${weekdayDraft}, ${dateDraft}\n${summary.present} present · ${summary.absent} absent`,
             [{ text: "Done", onPress: () => router.back() }]
           );
         }}
@@ -217,6 +299,67 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 12,
+  },
+  dateCard: {
+    marginBottom: 14,
+  },
+  dateHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  dateCardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: C.text,
+  },
+  dateHint: {
+    color: C.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  weekdayRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 8,
+  },
+  weekdayChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: C.bgSoft,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  weekdayChipActive: {
+    backgroundColor: C.primary,
+    borderColor: C.primary,
+  },
+  weekdayChipText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: C.muted,
+  },
+  weekdayChipTextActive: {
+    color: "#fff",
+  },
+  saveDateBtn: {
+    marginTop: 8,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: C.secondary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  saveDateText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
   },
   count: {
     fontSize: 16,
