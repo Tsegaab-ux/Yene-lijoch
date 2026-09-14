@@ -6,6 +6,7 @@ import { Screen, SoftCard, BackHeader } from "../../components/parent/ui";
 import { ParentNotice } from "../../data/sharedContent";
 import { ParentColors as C } from "../../constants/parentTheme";
 import { useSharedContent } from "../../contexts/SharedContentContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 const FILTERS = ["All", "Attendance", "Events", "Courses", "Chat"] as const;
 
@@ -19,7 +20,16 @@ const ICONS: Record<ParentNotice["category"], keyof typeof Ionicons.glyphMap> = 
 
 export default function NotificationsScreen() {
   const { parentNotices } = useSharedContent();
+  const { t } = useLanguage();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
+
+  const filterLabel = (item: (typeof FILTERS)[number]) => {
+    if (item === "All") return t("parent.all");
+    if (item === "Attendance") return t("tabs.attendance");
+    if (item === "Events") return t("tabs.events");
+    if (item === "Courses") return t("tabs.courses");
+    return item;
+  };
 
   const items = useMemo(() => {
     if (filter === "All") return parentNotices;
@@ -31,8 +41,8 @@ export default function NotificationsScreen() {
   return (
     <Screen>
       <BackHeader
-        title="Notifications"
-        subtitle="Updates from admin and teachers"
+        title={t("parent.notificationsTitle")}
+        subtitle={t("parent.notificationsSub")}
       />
 
       <ScrollView
@@ -49,7 +59,7 @@ export default function NotificationsScreen() {
               onPress={() => setFilter(item)}
             >
               <Text style={[styles.pillText, active && styles.pillTextActive]}>
-                {item}
+                {filterLabel(item)}
               </Text>
             </SoftCard>
           );

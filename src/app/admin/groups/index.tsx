@@ -19,6 +19,7 @@ import {
 import { AdminColors as C } from "../../../constants/adminTheme";
 import { useSharedContent } from "../../../contexts/SharedContentContext";
 import { confirmAction, notify } from "../../../utils/mediaPicker";
+import { useLanguage } from "../../../contexts/LanguageContext";
 
 type DraftStudent = {
   key: string;
@@ -50,6 +51,7 @@ export default function AdminGroupsScreen() {
     removeStudent,
     getStudentsByGroup,
   } = useSharedContent();
+  const { t } = useLanguage();
 
   const [showCreate, setShowCreate] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState(false);
@@ -138,9 +140,9 @@ export default function AdminGroupsScreen() {
   return (
     <Screen>
       <TopBar
-        title="Groups"
-        subtitle="Create a group and add students together"
-        actionLabel={showCreate ? "Close" : "+ Group"}
+        title={t("admin.groupsTitle")}
+        subtitle={t("admin.groupsSub")}
+        actionLabel={showCreate ? t("common.close") : "+ Group"}
         onAction={() => {
           setShowCreate((v) => !v);
           setShowAddStudent(false);
@@ -156,7 +158,9 @@ export default function AdminGroupsScreen() {
           }}
         >
           <Ionicons name="people" size={16} color="#fff" />
-          <Text style={styles.quickPrimaryText}>New group + students</Text>
+          <Text style={styles.quickPrimaryText}>
+            {t("admin.newGroupStudents")}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.quickBtn}
@@ -166,7 +170,7 @@ export default function AdminGroupsScreen() {
           }}
         >
           <Ionicons name="person-add-outline" size={16} color={C.primary} />
-          <Text style={styles.quickText}>Add student</Text>
+          <Text style={styles.quickText}>{t("admin.addStudent")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -303,7 +307,7 @@ export default function AdminGroupsScreen() {
                 onChangeText={setParentEmail}
               />
               <PrimaryButton
-                label="Add student"
+                label={t("admin.addStudent")}
                 icon="person-add-outline"
                 onPress={handleAddStudentToExisting}
               />
@@ -379,7 +383,7 @@ export default function AdminGroupsScreen() {
                     })
                   }
                 >
-                  <Text style={styles.removeText}>Remove</Text>
+                  <Text style={styles.removeText}>{t("common.remove")}</Text>
                 </TouchableOpacity>
               </View>
             ))}

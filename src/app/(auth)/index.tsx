@@ -14,6 +14,8 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { PhoneShell, usePhoneFrame } from "../../components/auth/PhoneShell";
+import { LanguageToggle } from "../../components/LanguageToggle";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 const KIDS_IMAGE = require("../../../assets/images/welcome/kids-welcome.png");
 
@@ -29,6 +31,7 @@ const SLIDES: Slide[] = [
 
 export default function WelcomeScreen() {
   const { frameW, frameH } = usePhoneFrame();
+  const { t } = useLanguage();
   const listRef = useRef<FlatList<Slide>>(null);
   const [index, setIndex] = useState(0);
 
@@ -48,6 +51,10 @@ export default function WelcomeScreen() {
   return (
     <PhoneShell background="#121816">
       <View style={[styles.root, { width: frameW, height: frameH }]}>
+        <SafeAreaView edges={["top"]} style={styles.langBar}>
+          <LanguageToggle tone="light" />
+        </SafeAreaView>
+
         <FlatList
           ref={listRef}
           data={SLIDES}
@@ -88,15 +95,17 @@ export default function WelcomeScreen() {
             activeOpacity={0.88}
           >
             <Text style={styles.ctaText}>
-              {index === SLIDES.length - 1 ? "Continue" : "Next"}
+              {index === SLIDES.length - 1
+                ? t("welcome.continue")
+                : t("welcome.next")}
             </Text>
             <Ionicons name="arrow-forward" size={18} color="#fff" />
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => router.push("/(auth)/login")}>
             <Text style={styles.loginLink}>
-              Already have an account?{" "}
-              <Text style={styles.loginBold}>Login</Text>
+              {t("welcome.alreadyAccount")}{" "}
+              <Text style={styles.loginBold}>{t("common.login")}</Text>
             </Text>
           </TouchableOpacity>
         </SafeAreaView>
@@ -106,6 +115,7 @@ export default function WelcomeScreen() {
 }
 
 function LogoSlide({ width, height }: { width: number; height: number }) {
+  const { t } = useLanguage();
   return (
     <View style={[styles.slide, styles.logoSlide, { width, height }]}>
       <View
@@ -142,20 +152,17 @@ function LogoSlide({ width, height }: { width: number; height: number }) {
         </View>
       </View>
 
-      <Text style={styles.brand}>Yene Lijoch</Text>
-      <Text style={styles.welcome}>Welcome</Text>
-      <Text style={styles.tagline}>
-        A home for Sunday school families — parents, teachers, and children
-        growing together.
-      </Text>
+      <Text style={styles.brand}>{t("welcome.brand")}</Text>
+      <Text style={styles.welcome}>{t("welcome.welcome")}</Text>
+      <Text style={styles.tagline}>{t("welcome.tagline")}</Text>
     </View>
   );
 }
 
 function PhotoSlide({ width, height }: { width: number; height: number }) {
+  const { t } = useLanguage();
   return (
     <View style={[styles.slide, { width, height, backgroundColor: "#1a1512" }]}>
-      {/* Portrait crop: cover + center so landscape photo fills the phone */}
       <Image
         source={KIDS_IMAGE}
         style={StyleSheet.absoluteFill}
@@ -167,11 +174,9 @@ function PhotoSlide({ width, height }: { width: number; height: number }) {
       <View style={styles.photoScrimBottom} />
 
       <SafeAreaView edges={["top"]} style={styles.photoContent}>
-        <Text style={styles.photoEyebrow}>Our children</Text>
-        <Text style={styles.photoTitle}>Yene Lijoch</Text>
-        <Text style={styles.photoBody}>
-          Joyful learning, faith, and connection — built for every family.
-        </Text>
+        <Text style={styles.photoEyebrow}>{t("welcome.ourChildren")}</Text>
+        <Text style={styles.photoTitle}>{t("welcome.brand")}</Text>
+        <Text style={styles.photoBody}>{t("welcome.photoBody")}</Text>
       </SafeAreaView>
     </View>
   );
@@ -180,6 +185,14 @@ function PhotoSlide({ width, height }: { width: number; height: number }) {
 const styles = StyleSheet.create({
   root: {
     backgroundColor: "#1F2A24",
+  },
+  langBar: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    zIndex: 20,
+    paddingHorizontal: 16,
+    paddingTop: 4,
   },
   slide: {
     overflow: "hidden",

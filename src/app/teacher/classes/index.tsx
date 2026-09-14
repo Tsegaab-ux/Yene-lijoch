@@ -18,9 +18,11 @@ import {
 } from "../../../data/teacherMock";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
 import { useTeacherStudents } from "../../../contexts/TeacherStudentsContext";
+import { useLanguage } from "../../../contexts/LanguageContext";
 
 export default function StudentsScreen() {
   const { students, attendanceLabel } = useTeacherStudents();
+  const { t } = useLanguage();
   const [query, setQuery] = useState("");
   const summary = useMemo(() => getAttendanceSummary(students), [students]);
 
@@ -36,14 +38,16 @@ export default function StudentsScreen() {
 
   return (
     <Screen>
-      <Text style={styles.title}>My Students</Text>
-      <Text style={styles.subtitle}>{students.length} Students</Text>
+      <Text style={styles.title}>{t("teacher.studentsTitle")}</Text>
+      <Text style={styles.subtitle}>
+        {students.length} {t("teacher.studentsSub")}
+      </Text>
 
       <View style={styles.searchBox}>
         <Ionicons name="search" size={18} color={C.muted} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search"
+          placeholder={t("common.search")}
           placeholderTextColor={C.muted}
           value={query}
           onChangeText={setQuery}
@@ -53,18 +57,30 @@ export default function StudentsScreen() {
       </View>
 
       <SoftCard style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Today's Attendance</Text>
+        <Text style={styles.summaryTitle}>{t("teacher.todaysAttendance")}</Text>
         <View style={styles.dateRow}>
           <Ionicons name="calendar-outline" size={16} color={C.primary} />
           <Text style={styles.dateText}>{attendanceLabel}</Text>
         </View>
         <View style={styles.summaryRow}>
-          <SummaryItem value={`${summary.present}`} label="Present" tone="success" />
-          <SummaryItem value={`${summary.absent}`} label="Absent" tone="danger" />
-          <SummaryItem value={`${summary.unmarked}`} label="Not Marked" tone="muted" />
+          <SummaryItem
+            value={`${summary.present}`}
+            label={t("parent.present")}
+            tone="success"
+          />
+          <SummaryItem
+            value={`${summary.absent}`}
+            label={t("parent.absent")}
+            tone="danger"
+          />
+          <SummaryItem
+            value={`${summary.unmarked}`}
+            label={t("teacher.notMarked")}
+            tone="muted"
+          />
         </View>
         <PrimaryButton
-          label="Take Attendance"
+          label={t("teacher.takeAttendance")}
           icon="checkmark-done-outline"
           onPress={() => router.push("/teacher/classes/attendance")}
         />
@@ -76,6 +92,9 @@ export default function StudentsScreen() {
             key={student.id}
             student={student}
             last={index === filtered.length - 1}
+            presentLabel={t("parent.present")}
+            absentLabel={t("parent.absent")}
+            notMarkedLabel={t("teacher.notMarked")}
           />
         ))}
         {filtered.length === 0 ? (
@@ -109,11 +128,22 @@ function SummaryItem({
 function StudentRow({
   student,
   last,
+  presentLabel,
+  absentLabel,
+  notMarkedLabel,
 }: {
   student: SundayStudent;
   last: boolean;
+  presentLabel: string;
+  absentLabel: string;
+  notMarkedLabel: string;
 }) {
-  const status = statusMeta(student.attendance);
+  const status = statusMeta(
+    student.attendance,
+    presentLabel,
+    absentLabel,
+    notMarkedLabel
+  );
 
   return (
     <SoftCard
@@ -132,23 +162,28 @@ function StudentRow({
   );
 }
 
-function statusMeta(attendance: SundayStudent["attendance"]) {
+function statusMeta(
+  attendance: SundayStudent["attendance"],
+  presentLabel: string,
+  absentLabel: string,
+  notMarkedLabel: string
+) {
   if (attendance === "present") {
     return {
-      label: "Present today",
+      label: presentLabel,
       color: C.success,
       icon: "checkmark-circle" as const,
     };
   }
   if (attendance === "absent") {
     return {
-      label: "Absent today",
+      label: absentLabel,
       color: C.danger,
       icon: "close-circle" as const,
     };
   }
   return {
-    label: "Not marked",
+    label: notMarkedLabel,
     color: C.muted,
     icon: "ellipse-outline" as const,
   };

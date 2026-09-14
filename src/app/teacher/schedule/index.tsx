@@ -10,16 +10,18 @@ import {
 } from "../../../components/teacher/ui";
 import { useTeacherEvents } from "../../../contexts/TeacherEventsContext";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
+import { useLanguage } from "../../../contexts/LanguageContext";
 
 export default function EventsScreen() {
   const { events } = useTeacherEvents();
+  const { t } = useLanguage();
 
   return (
     <Screen>
-      <Text style={styles.title}>Events</Text>
-      <Text style={styles.subtitle}>Children's activities and gatherings</Text>
+      <Text style={styles.title}>{t("teacher.eventsTitle")}</Text>
+      <Text style={styles.subtitle}>{t("teacher.eventsSub")}</Text>
 
-      <SectionLabel title="Upcoming" />
+      <SectionLabel title={t("teacher.upcoming")} />
 
       {events.map((event) => (
         <SoftCard

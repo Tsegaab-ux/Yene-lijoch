@@ -3,6 +3,7 @@ import { Text, StyleSheet } from "react-native";
 import { router } from "expo-router";
 import { ChatListShell, ConversationRow } from "../../../components/chat/ChatUI";
 import { useChat } from "../../../contexts/ChatContext";
+import { useLanguage } from "../../../contexts/LanguageContext";
 import { ParentColors as C } from "../../../constants/parentTheme";
 
 const theme = {
@@ -19,6 +20,7 @@ const theme = {
 
 export default function ParentMessagesList() {
   const { conversations } = useChat();
+  const { t } = useLanguage();
   const [search, setSearch] = useState("");
 
   // Parent demo account sees chats with teachers (all threads for demo)
@@ -35,8 +37,8 @@ export default function ParentMessagesList() {
 
   return (
     <ChatListShell
-      title="Messages"
-      subtitle="Chat with teachers"
+      title={t("parent.messagesTitle")}
+      subtitle={t("parent.messagesSub")}
       theme={theme}
       search={search}
       onSearch={setSearch}

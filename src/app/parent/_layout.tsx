@@ -3,9 +3,12 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Platform } from "react-native";
 import { SelectedChildProvider } from "../../contexts/SelectedChildContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { ParentColors as C } from "../../constants/parentTheme";
 
 export default function ParentLayout() {
+  const { t } = useLanguage();
+
   return (
     <SelectedChildProvider>
       <Tabs
@@ -40,7 +43,7 @@ export default function ParentLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: "Home",
+            title: t("tabs.home"),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons
                 name={focused ? "home" : "home-outline"}
@@ -53,7 +56,7 @@ export default function ParentLayout() {
         <Tabs.Screen
           name="courses"
           options={{
-            title: "Courses",
+            title: t("tabs.courses"),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons
                 name={focused ? "book" : "book-outline"}
@@ -66,7 +69,7 @@ export default function ParentLayout() {
         <Tabs.Screen
           name="attendance"
           options={{
-            title: "Attendance",
+            title: t("tabs.attendance"),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons
                 name={focused ? "checkmark-done" : "checkmark-done-outline"}
@@ -79,7 +82,7 @@ export default function ParentLayout() {
         <Tabs.Screen
           name="events"
           options={{
-            title: "Events",
+            title: t("tabs.events"),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons
                 name={focused ? "calendar" : "calendar-outline"}
@@ -92,7 +95,7 @@ export default function ParentLayout() {
         <Tabs.Screen
           name="messages"
           options={{
-            title: "Messages",
+            title: t("tabs.messages"),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons
                 name={focused ? "chatbubble" : "chatbubble-outline"}
@@ -102,10 +105,13 @@ export default function ParentLayout() {
             ),
           }}
         />
-        <Tabs.Screen name="profile" options={{ href: null, title: "Profile" }} />
+        <Tabs.Screen
+          name="profile"
+          options={{ href: null, title: t("tabs.profile") }}
+        />
         <Tabs.Screen
           name="notifications"
-          options={{ href: null, title: "Notifications" }}
+          options={{ href: null, title: t("tabs.notifications") }}
         />
         <Tabs.Screen name="lessons" options={{ href: null }} />
         <Tabs.Screen name="progress" options={{ href: null }} />

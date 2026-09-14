@@ -7,22 +7,29 @@ import {
   AvatarBubble,
   MenuRow,
 } from "../../../components/parent/ui";
+import { LanguageToggle } from "../../../components/LanguageToggle";
 import { PARENT, NOTIFICATIONS } from "../../../data/parentMock";
 import { useSelectedChild } from "../../../contexts/SelectedChildContext";
+import { useLanguage } from "../../../contexts/LanguageContext";
 import { ParentColors as C } from "../../../constants/parentTheme";
 import { TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function ProfileScreen() {
+  const { t } = useLanguage();
   const { childrenList } = useSelectedChild();
   const unread = NOTIFICATIONS.filter((n) => n.unread).length;
 
   return (
     <Screen>
+      <View style={styles.langRow}>
+        <LanguageToggle tone="dark" />
+      </View>
+
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Profile</Text>
-          <Text style={styles.subtitle}>Account and family settings</Text>
+          <Text style={styles.title}>{t("parent.profileTitle")}</Text>
+          <Text style={styles.subtitle}>{t("parent.profileSub")}</Text>
         </View>
         <TouchableOpacity
           style={styles.bell}
@@ -81,14 +88,14 @@ export default function ProfileScreen() {
         />
         <MenuRow
           icon="log-out-outline"
-          title="Logout"
-          subtitle="Return to login"
+          title={t("parent.logout")}
+          subtitle={t("common.login")}
           danger
           onPress={() =>
-            Alert.alert("Logout", "Are you sure you want to log out?", [
-              { text: "Cancel", style: "cancel" },
+            Alert.alert(t("parent.logout"), t("parent.logout"), [
+              { text: t("common.cancel"), style: "cancel" },
               {
-                text: "Logout",
+                text: t("parent.logout"),
                 style: "destructive",
                 onPress: () => router.replace("/(auth)/login"),
               },
@@ -101,6 +108,10 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  langRow: {
+    alignItems: "flex-end",
+    marginBottom: 8,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",

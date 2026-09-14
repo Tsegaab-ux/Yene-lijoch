@@ -29,6 +29,7 @@ import {
   notify,
   PickedFile,
 } from "../../../utils/mediaPicker";
+import { useLanguage } from "../../../contexts/LanguageContext";
 
 const KINDS: MediaKind[] = [
   "video",
@@ -41,6 +42,7 @@ const KINDS: MediaKind[] = [
 export default function AdminVideosScreen() {
   const { media, addMedia, removeMedia, toggleMediaPublished } =
     useSharedContent();
+  const { t } = useLanguage();
   const [showForm, setShowForm] = useState(false);
   const [kind, setKind] = useState<MediaKind>("video");
   const [title, setTitle] = useState("");
@@ -134,9 +136,9 @@ export default function AdminVideosScreen() {
   return (
     <Screen>
       <TopBar
-        title="Videos"
-        subtitle="Upload videos, music, pictures from gallery"
-        actionLabel={showForm ? "Close" : "+ Upload"}
+        title={t("admin.videosTitle")}
+        subtitle={t("admin.videosSub")}
+        actionLabel={showForm ? t("common.close") : `+ ${t("admin.upload")}`}
         onAction={() => setShowForm((v) => !v)}
       />
 
@@ -211,7 +213,7 @@ export default function AdminVideosScreen() {
         style={{ marginBottom: 10 }}
       >
         <Pill
-          label="All"
+          label={t("parent.all")}
           active={filter === "All"}
           onPress={() => setFilter("All")}
         />
@@ -271,7 +273,7 @@ export default function AdminVideosScreen() {
               }}
             >
               <Text style={styles.actionText}>
-                {item.published ? "Hide" : "Publish"}
+                {item.published ? t("common.hide") : t("common.publish")}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -284,7 +286,7 @@ export default function AdminVideosScreen() {
               }
             >
               <Text style={[styles.actionText, { color: C.danger }]}>
-                Delete
+                {t("common.delete")}
               </Text>
             </TouchableOpacity>
           </View>

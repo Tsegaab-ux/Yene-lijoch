@@ -5,18 +5,20 @@ import { Ionicons } from "@expo/vector-icons";
 import { Screen, SoftCard, SectionLabel } from "../../../components/parent/ui";
 import { ParentColors as C } from "../../../constants/parentTheme";
 import { useSharedContent } from "../../../contexts/SharedContentContext";
+import { useLanguage } from "../../../contexts/LanguageContext";
 
 export default function ParentEventsScreen() {
   const { publishedEvents } = useSharedContent();
+  const { t } = useLanguage();
   const upcoming = publishedEvents.filter((e) => e.status !== "past");
   const past = publishedEvents.filter((e) => e.status === "past");
 
   return (
     <Screen>
-      <Text style={styles.title}>Events</Text>
-      <Text style={styles.subtitle}>Kids activities posted by admin</Text>
+      <Text style={styles.title}>{t("parent.eventsTitle")}</Text>
+      <Text style={styles.subtitle}>{t("parent.eventsSub")}</Text>
 
-      <SectionLabel title="Upcoming" />
+      <SectionLabel title={t("parent.upcoming")} />
       {upcoming.map((event) => (
         <SoftCard
           key={event.id}
@@ -35,7 +37,7 @@ export default function ParentEventsScreen() {
 
       {past.length > 0 ? (
         <>
-          <SectionLabel title="Past" />
+          <SectionLabel title={t("parent.past")} />
           {past.map((event) => (
             <SoftCard
               key={event.id}

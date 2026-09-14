@@ -13,11 +13,13 @@ import {
 import { ParentColors as C } from "../../../constants/parentTheme";
 import { useSelectedChild } from "../../../contexts/SelectedChildContext";
 import { useSharedContent } from "../../../contexts/SharedContentContext";
+import { useLanguage } from "../../../contexts/LanguageContext";
 
 export default function ParentAttendanceScreen() {
   const { childrenList, selectedChild, selectedId, setSelectedId, groupName } =
     useSelectedChild();
   const { getAttendanceForStudent, getAttendanceSummary } = useSharedContent();
+  const { t } = useLanguage();
 
   const days = useMemo(
     () => getAttendanceForStudent(selectedId),
@@ -30,10 +32,8 @@ export default function ParentAttendanceScreen() {
 
   return (
     <Screen>
-      <Text style={styles.title}>Attendance</Text>
-      <Text style={styles.subtitle}>
-        Sunday school attendance for your children
-      </Text>
+      <Text style={styles.title}>{t("parent.attendanceTitle")}</Text>
+      <Text style={styles.subtitle}>{t("parent.attendanceSub")}</Text>
 
       <ScrollView
         horizontal
@@ -65,24 +65,36 @@ export default function ParentAttendanceScreen() {
           </View>
           <View style={styles.pctBox}>
             <Text style={styles.pct}>{selectedChild.attendance}%</Text>
-            <Text style={styles.pctLabel}>Rate</Text>
+            <Text style={styles.pctLabel}>{t("parent.rate")}</Text>
           </View>
         </View>
 
         <View style={styles.summaryRow}>
-          <SummaryItem value={`${summary.present}`} label="Present" tone="success" />
-          <SummaryItem value={`${summary.absent}`} label="Absent" tone="danger" />
-          <SummaryItem value={`${summary.total}`} label="Recorded" tone="muted" />
+          <SummaryItem
+            value={`${summary.present}`}
+            label={t("parent.present")}
+            tone="success"
+          />
+          <SummaryItem
+            value={`${summary.absent}`}
+            label={t("parent.absent")}
+            tone="danger"
+          />
+          <SummaryItem
+            value={`${summary.total}`}
+            label={t("parent.recorded")}
+            tone="muted"
+          />
         </View>
 
         <PrimaryButton
-          label="Message Teacher"
+          label={t("parent.messageTeacher")}
           icon="chatbubble-ellipses-outline"
           onPress={() => router.push("/parent/messages")}
         />
       </SoftCard>
 
-      <SectionLabel title="Recent Sundays" />
+      <SectionLabel title={t("parent.recentSundays")} />
       {days.map((day) => {
         const present = day.status === "present";
         return (
@@ -112,7 +124,7 @@ export default function ParentAttendanceScreen() {
                   { color: present ? C.success : C.danger },
                 ]}
               >
-                {present ? "Present" : "Absent"}
+                {present ? t("parent.present") : t("parent.absent")}
               </Text>
             </View>
           </SoftCard>

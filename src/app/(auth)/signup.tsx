@@ -13,19 +13,22 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import { LanguageToggle } from "../../components/LanguageToggle";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 type Role = "parent" | "teacher" | "admin";
 
 const ROLE_META: Record<
   Role,
-  { label: string; color: string; home: "/parent" | "/teacher" | "/admin" }
+  { color: string; home: "/parent" | "/teacher" | "/admin" }
 > = {
-  parent: { label: "Parent", color: "#3D6B5A", home: "/parent" },
-  teacher: { label: "Teacher", color: "#C45C26", home: "/teacher" },
-  admin: { label: "Admin", color: "#2D6A4F", home: "/admin" },
+  parent: { color: "#3D6B5A", home: "/parent" },
+  teacher: { color: "#C45C26", home: "/teacher" },
+  admin: { color: "#2D6A4F", home: "/admin" },
 };
 
 export default function Signup() {
+  const { t } = useLanguage();
   const params = useLocalSearchParams<{ role?: string }>();
   const role = useMemo<Role>(() => {
     const raw = Array.isArray(params.role) ? params.role[0] : params.role;
@@ -34,6 +37,7 @@ export default function Signup() {
   }, [params.role]);
 
   const meta = ROLE_META[role];
+  const roleLabel = t(`role.${role}`);
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -45,26 +49,23 @@ export default function Signup() {
 
   const handleSignup = () => {
     if (!fullName || !email || !phone || !password || !confirmPassword) {
-      Alert.alert("Missing information", "Please fill in all fields.");
+      Alert.alert(t("common.error"), t("signup.missing"));
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Password Error", "Passwords do not match.");
+      Alert.alert(t("common.error"), t("signup.passwordMismatch"));
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert(
-        "Password Error",
-        "Password must be at least 6 characters long."
-      );
+      Alert.alert(t("common.error"), t("signup.passwordShort"));
       return;
     }
 
-    Alert.alert("Success", `Your ${meta.label.toLowerCase()} account is ready!`, [
+    Alert.alert(t("common.success"), t("signup.success", { role: roleLabel }), [
       {
-        text: "Continue",
+        text: t("common.continue"),
         onPress: () => router.replace(meta.home),
       },
     ]);
@@ -81,6 +82,10 @@ export default function Signup() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.langRow}>
+            <LanguageToggle tone="dark" />
+          </View>
+
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
@@ -90,22 +95,22 @@ export default function Signup() {
 
           <View style={[styles.roleChip, { backgroundColor: `${meta.color}18` }]}>
             <Text style={[styles.roleChipText, { color: meta.color }]}>
-              Signing up as {meta.label}
+              {t("signup.signingAs", { role: roleLabel })}
             </Text>
             <TouchableOpacity onPress={() => router.replace("/(auth)/role")}>
-              <Text style={[styles.changeRole, { color: meta.color }]}>Change</Text>
+              <Text style={[styles.changeRole, { color: meta.color }]}>
+                {t("common.change")}
+              </Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.header}>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>
-              Join Yene Lijoch and stay connected with your child's learning.
-            </Text>
+            <Text style={styles.title}>{t("signup.title")}</Text>
+            <Text style={styles.subtitle}>{t("signup.subtitle")}</Text>
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Full Name</Text>
+            <Text style={styles.label}>{t("signup.fullName")}</Text>
             <View style={styles.inputWrapper}>
               <Ionicons
                 name="person-outline"
@@ -115,7 +120,7 @@ export default function Signup() {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Enter your full name"
+                placeholder={t("signup.fullNamePlaceholder")}
                 placeholderTextColor="#999"
                 value={fullName}
                 onChangeText={setFullName}
@@ -125,7 +130,7 @@ export default function Signup() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>{t("signup.email")}</Text>
             <View style={styles.inputWrapper}>
               <Ionicons
                 name="mail-outline"
@@ -135,7 +140,7 @@ export default function Signup() {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Enter your email"
+                placeholder={t("signup.emailPlaceholder")}
                 placeholderTextColor="#999"
                 value={email}
                 onChangeText={setEmail}
@@ -146,7 +151,7 @@ export default function Signup() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Phone Number</Text>
+            <Text style={styles.label}>{t("signup.phone")}</Text>
             <View style={styles.inputWrapper}>
               <Ionicons
                 name="call-outline"
@@ -156,7 +161,7 @@ export default function Signup() {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Enter your phone number"
+                placeholder={t("signup.phonePlaceholder")}
                 placeholderTextColor="#999"
                 value={phone}
                 onChangeText={setPhone}
@@ -166,7 +171,7 @@ export default function Signup() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
+            <Text style={styles.label}>{t("signup.password")}</Text>
             <View style={styles.inputWrapper}>
               <Ionicons
                 name="lock-closed-outline"
@@ -176,7 +181,7 @@ export default function Signup() {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Create a password"
+                placeholder={t("signup.passwordPlaceholder")}
                 placeholderTextColor="#999"
                 value={password}
                 onChangeText={setPassword}
@@ -193,7 +198,7 @@ export default function Signup() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Confirm Password</Text>
+            <Text style={styles.label}>{t("signup.confirmPassword")}</Text>
             <View style={styles.inputWrapper}>
               <Ionicons
                 name="lock-closed-outline"
@@ -203,7 +208,7 @@ export default function Signup() {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Confirm your password"
+                placeholder={t("signup.confirmPlaceholder")}
                 placeholderTextColor="#999"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -228,16 +233,16 @@ export default function Signup() {
             onPress={handleSignup}
             activeOpacity={0.8}
           >
-            <Text style={styles.signupButtonText}>Create Account</Text>
+            <Text style={styles.signupButtonText}>{t("signup.create")}</Text>
             <Ionicons name="arrow-forward" size={20} color="#fff" />
           </TouchableOpacity>
 
           <View style={styles.loginContainer}>
-            <Text style={styles.loginText}>Already have an account?</Text>
+            <Text style={styles.loginText}>{t("signup.already")}</Text>
             <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
               <Text style={[styles.loginLink, { color: meta.color }]}>
                 {" "}
-                Login
+                {t("common.login")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -256,6 +261,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 40,
+  },
+  langRow: {
+    alignItems: "flex-end",
+    marginBottom: 8,
   },
   backButton: {
     width: 44,

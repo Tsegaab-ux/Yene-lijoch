@@ -6,6 +6,7 @@ import { Screen, SoftCard, SectionLabel } from "../../../components/parent/ui";
 import { MEDIA_KIND_LABELS, MediaKind } from "../../../data/sharedContent";
 import { ParentColors as C } from "../../../constants/parentTheme";
 import { useSharedContent } from "../../../contexts/SharedContentContext";
+import { useLanguage } from "../../../contexts/LanguageContext";
 
 const FILTERS: Array<"All" | MediaKind | "lessons"> = [
   "All",
@@ -19,6 +20,7 @@ const FILTERS: Array<"All" | MediaKind | "lessons"> = [
 
 export default function CoursesScreen() {
   const { publishedMedia, publishedCurriculum } = useSharedContent();
+  const { t } = useLanguage();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
 
   const media = useMemo(() => {
@@ -28,10 +30,8 @@ export default function CoursesScreen() {
 
   return (
     <Screen>
-      <Text style={styles.title}>Courses</Text>
-      <Text style={styles.subtitle}>
-        Curriculum and media uploaded by admin
-      </Text>
+      <Text style={styles.title}>{t("parent.coursesTitle")}</Text>
+      <Text style={styles.subtitle}>{t("parent.coursesSub")}</Text>
 
       <ScrollView
         horizontal
@@ -42,9 +42,9 @@ export default function CoursesScreen() {
           const active = filter === item;
           const label =
             item === "All"
-              ? "All"
+              ? t("parent.all")
               : item === "lessons"
-                ? "Lessons"
+                ? t("parent.lessons")
                 : MEDIA_KIND_LABELS[item];
           return (
             <SoftCard
@@ -62,7 +62,7 @@ export default function CoursesScreen() {
 
       {(filter === "All" || filter === "lessons") && (
         <>
-          <SectionLabel title="Sunday School Curriculum" />
+          <SectionLabel title={t("parent.sundayCurriculum")} />
           {publishedCurriculum.map((course) => (
             <SoftCard
               key={course.id}
@@ -90,7 +90,7 @@ export default function CoursesScreen() {
 
       {filter !== "lessons" && (
         <>
-          <SectionLabel title="Watch & Learn" />
+          <SectionLabel title={t("parent.watchLearn")} />
           {media.map((item) => (
             <SoftCard
               key={item.id}

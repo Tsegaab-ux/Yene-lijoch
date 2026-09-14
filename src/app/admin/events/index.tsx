@@ -14,9 +14,11 @@ import {
   confirmAction,
   notify,
 } from "../../../utils/mediaPicker";
+import { useLanguage } from "../../../contexts/LanguageContext";
 
 export default function AdminEventsScreen() {
   const { events, addEvent, removeEvent } = useSharedContent();
+  const { t } = useLanguage();
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("October 12, 2026");
@@ -50,9 +52,9 @@ export default function AdminEventsScreen() {
   return (
     <Screen>
       <TopBar
-        title="Events"
-        subtitle="Kids events for the parent portal"
-        actionLabel={showForm ? "Close" : "+ Add"}
+        title={t("admin.eventsTitle")}
+        subtitle={t("admin.eventsPageSub")}
+        actionLabel={showForm ? t("common.close") : `+ ${t("common.add")}`}
         onAction={() => setShowForm((v) => !v)}
       />
 
@@ -103,7 +105,7 @@ export default function AdminEventsScreen() {
               })
             }
           >
-            <Text style={styles.removeText}>Delete</Text>
+            <Text style={styles.removeText}>{t("common.delete")}</Text>
           </SoftCard>
         </SoftCard>
       ))}
