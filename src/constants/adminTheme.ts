@@ -1,0 +1,16 @@
+export const AdminColors = {
+  bg: "#F4F7F5",
+  text: "#1B2B23",
+  muted: "#5C6B63",
+  primary: "#2D6A4F",
+  primarySoft: "#E4F2EB",
+  accent: "#40916C",
+  accentSoft: "#D8F3DC",
+  card: "#FFFFFF",
+  border: "#D8E2DC",
+  success: "#2BB673",
+  successSoft: "#E8F8F0",
+  danger: "#D64545",
+  warning: "#E9C46A",
+  info: "#3B82F6",
+} as const;

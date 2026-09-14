@@ -7,15 +7,19 @@ import { ParentColors as C } from "../../../constants/parentTheme";
 const FAQS = [
   {
     q: "How do I switch between children?",
-    a: "Use the child selector on Home, or open My Children in Profile.",
+    a: "Use the child chips on Home or Attendance, or open My Children in Profile.",
   },
   {
-    q: "Where can I see today's lesson?",
-    a: "Home shows Today's Lesson. Open Lessons for the full list.",
+    q: "Where are kids videos and songs?",
+    a: "Home shows embedded videos, songs, and Bible stories. Open Courses for the full library.",
   },
   {
-    q: "How do I register for an event?",
-    a: "Open Events, tap an event, then tap Register.",
+    q: "How do I check attendance?",
+    a: "Open the Attendance tab to see present/absent Sundays for each child.",
+  },
+  {
+    q: "How do I message the teacher?",
+    a: "Open Messages to chat with your child’s Sunday school teacher.",
   },
 ];
 
