@@ -5,8 +5,11 @@ import { Platform } from "react-native";
 import { TeacherColors as C } from "../../constants/teacherTheme";
 import { TeacherEventsProvider } from "../../contexts/TeacherEventsContext";
 import { TeacherStudentsProvider } from "../../contexts/TeacherStudentsContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 export default function TeacherLayout() {
+  const { t } = useLanguage();
+
   return (
     <TeacherEventsProvider>
       <TeacherStudentsProvider>
@@ -42,7 +45,7 @@ export default function TeacherLayout() {
           <Tabs.Screen
             name="index"
             options={{
-              title: "Home",
+              title: t("tabs.home"),
               tabBarIcon: ({ color, focused }) => (
                 <Ionicons
                   name={focused ? "home" : "home-outline"}
@@ -55,7 +58,7 @@ export default function TeacherLayout() {
           <Tabs.Screen
             name="curriculum"
             options={{
-              title: "Curriculum",
+              title: t("tabs.curriculum"),
               tabBarIcon: ({ color, focused }) => (
                 <Ionicons
                   name={focused ? "book" : "book-outline"}
@@ -68,7 +71,7 @@ export default function TeacherLayout() {
           <Tabs.Screen
             name="classes"
             options={{
-              title: "Students",
+              title: t("tabs.students"),
               tabBarIcon: ({ color, focused }) => (
                 <Ionicons
                   name={focused ? "people" : "people-outline"}
@@ -81,7 +84,7 @@ export default function TeacherLayout() {
           <Tabs.Screen
             name="schedule"
             options={{
-              title: "Events",
+              title: t("tabs.events"),
               tabBarIcon: ({ color, focused }) => (
                 <Ionicons
                   name={focused ? "calendar" : "calendar-outline"}
@@ -94,7 +97,7 @@ export default function TeacherLayout() {
           <Tabs.Screen
             name="messages"
             options={{
-              title: "Messages",
+              title: t("tabs.messages"),
               tabBarIcon: ({ color, focused }) => (
                 <Ionicons
                   name={focused ? "chatbubble" : "chatbubble-outline"}
@@ -108,7 +111,7 @@ export default function TeacherLayout() {
             name="profile"
             options={{
               href: null,
-              title: "Profile",
+              title: t("tabs.profile"),
             }}
           />
         </Tabs>

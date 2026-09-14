@@ -8,12 +8,15 @@ import {
   SectionLabel,
   MenuRow,
 } from "../../components/admin/ui";
+import { LanguageToggle } from "../../components/LanguageToggle";
 import { ADMIN_PROFILE } from "../../data/sharedContent";
 import { AdminColors as C } from "../../constants/adminTheme";
 import { useSharedContent } from "../../contexts/SharedContentContext";
 import { useChat } from "../../contexts/ChatContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 export default function AdminHome() {
+  const { t } = useLanguage();
   const {
     media,
     curriculum,
@@ -31,61 +34,66 @@ export default function AdminHome() {
     <Screen>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.kicker}>Admin</Text>
-          <Text style={styles.title}>Hi, {ADMIN_PROFILE.name.split(" ")[0]}</Text>
+          <Text style={styles.kicker}>{t("admin.portal")}</Text>
+          <Text style={styles.title}>
+            {t("admin.hi", { name: ADMIN_PROFILE.name.split(" ")[0] })}
+          </Text>
           <Text style={styles.sub}>{ADMIN_PROFILE.school}</Text>
         </View>
-        <TouchableOpacity
-          style={styles.bell}
-          onPress={() => router.push("/admin/notifications" as any)}
-        >
-          <Ionicons name="notifications-outline" size={20} color={C.text} />
-          {unread > 0 ? <View style={styles.dot} /> : null}
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <LanguageToggle tone="dark" />
+          <TouchableOpacity
+            style={styles.bell}
+            onPress={() => router.push("/admin/notifications" as any)}
+          >
+            <Ionicons name="notifications-outline" size={20} color={C.text} />
+            {unread > 0 ? <View style={styles.dot} /> : null}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.stats}>
-        <Stat label="Videos" value={`${media.length}`} />
-        <Stat label="Lessons" value={`${curriculum.length}`} />
-        <Stat label="Students" value={`${students.length}`} />
-        <Stat label="Events" value={`${events.length}`} />
+        <Stat label={t("tabs.videos")} value={`${media.length}`} />
+        <Stat label={t("parent.lessons")} value={`${curriculum.length}`} />
+        <Stat label={t("teacher.studentsSub")} value={`${students.length}`} />
+        <Stat label={t("admin.events")} value={`${events.length}`} />
       </View>
 
-      <SectionLabel title="Manage parent content" />
+      <SectionLabel title={t("admin.manageContent")} />
       <SoftCard>
         <MenuRow
           icon="videocam-outline"
-          title="Upload videos"
-          subtitle="Kids videos, songs, Bible stories"
+          title={t("admin.uploadVideos")}
+          subtitle={t("admin.uploadVideosSub")}
           onPress={() => router.push("/admin/videos" as any)}
         />
         <MenuRow
           icon="book-outline"
-          title="Yearly curriculum"
-          subtitle="Set lesson titles and dates"
+          title={t("admin.yearlyCurriculum")}
+          subtitle={t("admin.yearlyCurriculumSub")}
           onPress={() => router.push("/admin/curriculum" as any)}
         />
         <MenuRow
           icon="people-outline"
-          title="Groups & students"
-          subtitle={`${groups.length} groups · attendance roster`}
+          title={t("admin.groupsStudents")}
+          subtitle={t("admin.groupsStudentsSub")}
           onPress={() => router.push("/admin/groups" as any)}
         />
         <MenuRow
           icon="calendar-outline"
-          title="Events"
-          subtitle="Publish kids upcoming events"
+          title={t("admin.events")}
+          subtitle={t("admin.eventsMenuSub")}
           onPress={() => router.push("/admin/events" as any)}
         />
         <MenuRow
           icon="chatbubbles-outline"
-          title="Teacher chat alerts"
-          subtitle="Messages appear in notifications"
+          title={t("admin.chatAlerts")}
+          subtitle={t("admin.chatAlertsSub")}
           onPress={() => router.push("/admin/notifications" as any)}
         />
       </SoftCard>
 
-      <SectionLabel title="Recent admin activity" />
+      <SectionLabel title={t("admin.recentActivity")} />
       {adminNotices.slice(0, 4).map((n) => (
         <SoftCard key={n.id} style={styles.notice}>
           <Text style={styles.noticeTitle}>{n.title}</Text>
@@ -97,17 +105,17 @@ export default function AdminHome() {
       <SoftCard
         style={{ marginTop: 8 }}
         onPress={() =>
-          Alert.alert("Logout", "Return to login?", [
-            { text: "Cancel", style: "cancel" },
+          Alert.alert(t("admin.logout"), t("admin.logout"), [
+            { text: t("common.cancel"), style: "cancel" },
             {
-              text: "Logout",
+              text: t("admin.logout"),
               style: "destructive",
               onPress: () => router.replace("/(auth)/login"),
             },
           ])
         }
       >
-        <Text style={styles.logout}>Logout</Text>
+        <Text style={styles.logout}>{t("admin.logout")}</Text>
       </SoftCard>
     </Screen>
   );
@@ -127,6 +135,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     marginBottom: 16,
+  },
+  headerActions: {
+    alignItems: "flex-end",
+    gap: 8,
   },
   kicker: {
     color: C.muted,

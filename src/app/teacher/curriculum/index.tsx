@@ -10,11 +10,14 @@ import {
   CurriculumStatus,
 } from "../../../data/teacherMock";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
+import { useLanguage } from "../../../contexts/LanguageContext";
 
 export default function CurriculumScreen() {
+  const { t } = useLanguage();
+
   return (
     <Screen>
-      <Text style={styles.title}>Curriculum</Text>
+      <Text style={styles.title}>{t("teacher.curriculumTitle")}</Text>
       <Text style={styles.subtitle}>{CURRICULUM_TITLE}</Text>
 
       {CURRICULUM_MONTHS.map((block) => (

@@ -26,6 +26,7 @@ import {
   notify,
   PickedFile,
 } from "../../../utils/mediaPicker";
+import { useLanguage } from "../../../contexts/LanguageContext";
 
 const STATUSES: SharedCurriculum["status"][] = [
   "this_week",
@@ -41,6 +42,7 @@ export default function AdminCurriculumScreen() {
     removeCurriculum,
     toggleCurriculumPublished,
   } = useSharedContent();
+  const { t } = useLanguage();
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Creation");
@@ -102,9 +104,9 @@ export default function AdminCurriculumScreen() {
   return (
     <Screen>
       <TopBar
-        title="Curriculum"
-        subtitle="Set dates with calendar · upload from gallery"
-        actionLabel={showForm ? "Close" : "+ Add"}
+        title={t("admin.curriculumTitle")}
+        subtitle={t("admin.curriculumSub")}
+        actionLabel={showForm ? t("common.close") : `+ ${t("common.add")}`}
         onAction={() => setShowForm((v) => !v)}
       />
 
@@ -203,7 +205,7 @@ export default function AdminCurriculumScreen() {
                 onChange={(label) => setEditDate(label)}
               />
               <PrimaryButton
-                label="Save Date"
+                label={t("teacher.saveDate")}
                 onPress={() => {
                   if (!editDate.trim()) {
                     notify("Pick a date", "Select a day on the calendar.");
@@ -218,7 +220,7 @@ export default function AdminCurriculumScreen() {
                 style={styles.cancelBtn}
                 onPress={() => setEditingId(null)}
               >
-                <Text style={styles.cancelText}>Cancel</Text>
+                <Text style={styles.cancelText}>{t("common.cancel")}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -231,7 +233,7 @@ export default function AdminCurriculumScreen() {
                 setEditDate(item.date);
               }}
             >
-              <Text style={styles.actionText}>Set date</Text>
+              <Text style={styles.actionText}>{t("teacher.setDate")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionChip}
@@ -253,7 +255,7 @@ export default function AdminCurriculumScreen() {
               }}
             >
               <Text style={styles.actionText}>
-                {item.published ? "Hide" : "Publish"}
+                {item.published ? t("common.hide") : t("common.publish")}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -266,7 +268,7 @@ export default function AdminCurriculumScreen() {
               }
             >
               <Text style={[styles.actionText, { color: C.danger }]}>
-                Delete
+                {t("common.delete")}
               </Text>
             </TouchableOpacity>
           </View>

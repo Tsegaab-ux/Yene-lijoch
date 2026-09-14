@@ -10,18 +10,18 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { LanguageToggle } from "../../components/LanguageToggle";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 export default function LoginScreen() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = () => {
     if (!email || !password) {
-      Alert.alert(
-        "Missing information",
-        "Please enter your email and password."
-      );
+      Alert.alert(t("common.error"), t("login.missing"));
       return;
     }
 
@@ -41,25 +41,21 @@ export default function LoginScreen() {
       return;
     }
 
-    Alert.alert(
-      "Demo Account",
-      "Use parent@test.com, teacher@test.com, or admin@test.com"
-    );
+    Alert.alert(t("login.demoTitle"), t("login.demoHint"));
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.langRow}>
+        <LanguageToggle tone="dark" />
+      </View>
+
       <View style={styles.content}>
+        <Text style={styles.title}>{t("login.title")}</Text>
 
-        {/* Header */}
-        <Text style={styles.title}>Welcome Back 👋</Text>
+        <Text style={styles.subtitle}>{t("login.subtitle")}</Text>
 
-        <Text style={styles.subtitle}>
-          Login to your Yene Lijoch account
-        </Text>
-
-        {/* Email */}
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>{t("login.email")}</Text>
 
         <View style={styles.inputWrapper}>
           <Ionicons
@@ -71,7 +67,7 @@ export default function LoginScreen() {
 
           <TextInput
             style={styles.input}
-            placeholder="Enter your email"
+            placeholder={t("login.emailPlaceholder")}
             placeholderTextColor="#999"
             keyboardType="email-address"
             autoCapitalize="none"
@@ -81,8 +77,7 @@ export default function LoginScreen() {
           />
         </View>
 
-        {/* Password */}
-        <Text style={styles.label}>Password</Text>
+        <Text style={styles.label}>{t("login.password")}</Text>
 
         <View style={styles.inputWrapper}>
           <Ionicons
@@ -94,7 +89,7 @@ export default function LoginScreen() {
 
           <TextInput
             style={styles.input}
-            placeholder="Enter your password"
+            placeholder={t("login.passwordPlaceholder")}
             placeholderTextColor="#999"
             secureTextEntry={!showPassword}
             value={password}
@@ -106,56 +101,36 @@ export default function LoginScreen() {
             style={styles.eyeButton}
           >
             <Ionicons
-              name={
-                showPassword
-                  ? "eye-off-outline"
-                  : "eye-outline"
-              }
+              name={showPassword ? "eye-off-outline" : "eye-outline"}
               size={21}
               color="#77758A"
             />
           </TouchableOpacity>
         </View>
 
-        {/* Forgot Password */}
         <TouchableOpacity
           style={styles.forgot}
-          onPress={() =>
-            router.push("/(auth)/forgot-password")
-          }
+          onPress={() => router.push("/(auth)/forgot-password")}
         >
-          <Text style={styles.forgotText}>
-            Forgot Password?
-          </Text>
+          <Text style={styles.forgotText}>{t("login.forgot")}</Text>
         </TouchableOpacity>
 
-        {/* Login Button */}
         <TouchableOpacity
           style={styles.button}
           onPress={handleLogin}
           activeOpacity={0.8}
         >
-          <Text style={styles.buttonText}>Login</Text>
+          <Text style={styles.buttonText}>{t("login.login")}</Text>
 
-          <Ionicons
-            name="arrow-forward"
-            size={20}
-            color="#FFFFFF"
-          />
+          <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
         </TouchableOpacity>
 
-        {/* Signup */}
-        <TouchableOpacity
-          onPress={() => router.push("/(auth)/role")}
-        >
+        <TouchableOpacity onPress={() => router.push("/(auth)/role")}>
           <Text style={styles.signup}>
-            Don't have an account?{" "}
-            <Text style={styles.signupBold}>
-              Sign Up
-            </Text>
+            {t("login.noAccount")}{" "}
+            <Text style={styles.signupBold}>{t("common.signup")}</Text>
           </Text>
         </TouchableOpacity>
-
       </View>
     </SafeAreaView>
   );
@@ -165,6 +140,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFF9F1",
+  },
+
+  langRow: {
+    paddingHorizontal: 30,
+    paddingTop: 8,
+    alignItems: "flex-end",
   },
 
   content: {

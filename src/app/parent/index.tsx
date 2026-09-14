@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import {
   View,
   Text,
@@ -20,11 +20,12 @@ import {
   ImageChip,
 } from "../../components/teacher/ImageSectionCard";
 import { VideoEmbed } from "../../components/parent/VideoEmbed";
-import { MEDIA_KIND_LABELS, MediaKind } from "../../data/sharedContent";
+import { MediaKind } from "../../data/sharedContent";
 import { ParentColors as C } from "../../constants/parentTheme";
 import { useSelectedChild } from "../../contexts/SelectedChildContext";
 import { useSharedContent } from "../../contexts/SharedContentContext";
 import { useChat } from "../../contexts/ChatContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 const IMAGES = {
   welcome: require("../../../assets/images/teacher-home/teacher-home-welcome.png"),
@@ -41,7 +42,16 @@ const HOME_MEDIA_ORDER: MediaKind[] = [
   "picture",
 ];
 
+const MEDIA_KIND_KEYS: Record<MediaKind, string> = {
+  video: "parent.kidsVideos",
+  song: "parent.kidsSongs",
+  bible_story: "parent.bibleStories",
+  course: "parent.curriculumVideos",
+  picture: "parent.pictures",
+};
+
 export default function ParentHome() {
+  const { t } = useLanguage();
   const { childrenList, selectedChild, selectedId, setSelectedId, groupName } =
     useSelectedChild();
   const {
@@ -52,6 +62,11 @@ export default function ParentHome() {
     getAttendanceSummary,
   } = useSharedContent();
   const { conversations } = useChat();
+
+  const mediaKindLabel = useCallback(
+    (kind: MediaKind) => t(MEDIA_KIND_KEYS[kind]),
+    [t]
+  );
 
   const unreadNotifs = parentNotices.filter((n) => n.unread).length;
   const unreadChat = conversations.reduce(
@@ -68,8 +83,8 @@ export default function ParentHome() {
       <ImageSectionCard image={IMAGES.welcome} height={168}>
         <View style={styles.welcomeRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker}>Parent Portal</Text>
-            <Text style={styles.hello}>Hi, Parent</Text>
+            <Text style={styles.kicker}>{t("parent.portal")}</Text>
+            <Text style={styles.hello}>{t("parent.hiParent")}</Text>
             <Text style={styles.group}>
               {selectedChild.name} · {groupName}
             </Text>
@@ -114,7 +129,7 @@ export default function ParentHome() {
 
       {course ? (
         <>
-          <SectionLabel title="This Week's Course" />
+          <SectionLabel title={t("parent.thisWeekCourse")} />
           <ImageSectionCard image={IMAGES.lesson} height={280}>
             <ImageChip
               label={`Week ${course.week} · ${course.category}`}
@@ -123,7 +138,7 @@ export default function ParentHome() {
             <Text style={styles.title}>{course.title}</Text>
             <Text style={styles.meta}>{course.scripture}</Text>
             <View style={styles.divider} />
-            <Text style={styles.label}>Memory Verse</Text>
+            <Text style={styles.label}>{t("parent.memoryVerse")}</Text>
             <Text style={styles.verse}>"{course.memoryVerse}"</Text>
             <TouchableOpacity
               style={styles.cta}
@@ -132,7 +147,7 @@ export default function ParentHome() {
                 router.push(`/parent/courses/${course.id}` as any)
               }
             >
-              <Text style={styles.ctaText}>Open Course</Text>
+              <Text style={styles.ctaText}>{t("parent.openCourse")}</Text>
               <Ionicons name="arrow-forward" size={18} color="#fff" />
             </TouchableOpacity>
           </ImageSectionCard>
@@ -142,9 +157,10 @@ export default function ParentHome() {
       {HOME_MEDIA_ORDER.map((kind) => {
         const featured = publishedMedia.find((m) => m.kind === kind);
         if (!featured) return null;
+        const kindLabel = mediaKindLabel(kind);
         return (
           <View key={kind}>
-            <SectionLabel title={MEDIA_KIND_LABELS[kind]} />
+            <SectionLabel title={kindLabel} />
             <SoftCard style={styles.mediaCard}>
               <View style={styles.mediaHeader}>
                 <View
@@ -171,7 +187,7 @@ export default function ParentHome() {
                 onPress={() => router.push("/parent/courses" as any)}
               >
                 <Text style={styles.linkText}>
-                  See all {MEDIA_KIND_LABELS[kind]}
+                  {t("parent.seeAll", { label: kindLabel })}
                 </Text>
                 <Ionicons name="chevron-forward" size={16} color={C.primary} />
               </TouchableOpacity>
@@ -180,17 +196,19 @@ export default function ParentHome() {
         );
       })}
 
-      <SectionLabel title="Child Attendance" />
+      <SectionLabel title={t("parent.childAttendance")} />
       <ImageSectionCard image={IMAGES.students} height={230}>
         <ImageChip label={`${selectedChild.name}`} />
         <Text style={styles.title}>{selectedChild.attendance}% present</Text>
         <View style={styles.attRow}>
           <Text style={styles.stat}>
-            <Text style={styles.statStrong}>{attendance.present}</Text> Present
+            <Text style={styles.statStrong}>{attendance.present}</Text>{" "}
+            {t("parent.present")}
           </Text>
           <Text style={styles.statDot}>·</Text>
           <Text style={styles.stat}>
-            <Text style={styles.statStrong}>{attendance.absent}</Text> Absent
+            <Text style={styles.statStrong}>{attendance.absent}</Text>{" "}
+            {t("parent.absent")}
           </Text>
         </View>
         <TouchableOpacity
@@ -198,14 +216,14 @@ export default function ParentHome() {
           activeOpacity={0.88}
           onPress={() => router.push("/parent/attendance" as any)}
         >
-          <Text style={styles.ctaText}>View Attendance</Text>
+          <Text style={styles.ctaText}>{t("parent.viewAttendance")}</Text>
           <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
         </TouchableOpacity>
       </ImageSectionCard>
 
       {upcomingEvent ? (
         <>
-          <SectionLabel title="Upcoming Event" />
+          <SectionLabel title={t("parent.upcomingEvent")} />
           <ImageSectionCard
             image={IMAGES.events}
             height={200}
@@ -222,17 +240,15 @@ export default function ParentHome() {
         </>
       ) : null}
 
-      <SectionLabel title="Chat with Teacher" />
+      <SectionLabel title={t("parent.chatTeacher")} />
       <SoftCard
         style={styles.chatCard}
         onPress={() => router.push("/parent/messages")}
       >
         <AvatarBubble initials="HB" color={C.secondary} size={48} />
         <View style={{ flex: 1 }}>
-          <Text style={styles.chatTitle}>Message Teacher</Text>
-          <Text style={styles.chatSub}>
-            Ask about attendance, lessons, or pickup
-          </Text>
+          <Text style={styles.chatTitle}>{t("parent.messageTeacher")}</Text>
+          <Text style={styles.chatSub}>{t("parent.askPickup")}</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={C.muted} />
       </SoftCard>

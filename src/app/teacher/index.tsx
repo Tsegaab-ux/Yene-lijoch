@@ -17,6 +17,7 @@ import { TeacherColors as C } from "../../constants/teacherTheme";
 import { useTeacherEvents } from "../../contexts/TeacherEventsContext";
 import { useChat } from "../../contexts/ChatContext";
 import { useTeacherStudents } from "../../contexts/TeacherStudentsContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 const IMAGES = {
   welcome: require("../../../assets/images/teacher-home/teacher-home-welcome.png"),
@@ -27,6 +28,7 @@ const IMAGES = {
 };
 
 export default function TeacherHome() {
+  const { t } = useLanguage();
   const { events } = useTeacherEvents();
   const { conversations } = useChat();
   const { students, attendanceWeekday, attendanceDate } = useTeacherStudents();
@@ -41,8 +43,8 @@ export default function TeacherHome() {
       <ImageSectionCard image={IMAGES.welcome} height={168}>
         <View style={styles.welcomeRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker}>Sunday School</Text>
-            <Text style={styles.hello}>Good morning, Teacher</Text>
+            <Text style={styles.kicker}>{t("teacher.portal")}</Text>
+            <Text style={styles.hello}>{t("teacher.goodMorning")}</Text>
             <Text style={styles.group}>
               {TEACHER.program} · {TEACHER.group}
             </Text>
@@ -63,7 +65,7 @@ export default function TeacherHome() {
         </View>
       </ImageSectionCard>
 
-      <SectionLabel title="Today's Lesson" />
+      <SectionLabel title={t("teacher.todaysLesson")} />
       <ImageSectionCard image={IMAGES.lesson} height={300}>
         <ImageChip
           label={`Week ${TODAY_CURRICULUM.week} · ${TODAY_CURRICULUM.date}`}
@@ -74,7 +76,7 @@ export default function TeacherHome() {
 
         <View style={styles.divider} />
 
-        <Text style={styles.label}>Memory Verse</Text>
+        <Text style={styles.label}>{t("teacher.memoryVerse")}</Text>
         <Text style={styles.verse}>"{TODAY_CURRICULUM.memoryVerse}"</Text>
 
         <TouchableOpacity
@@ -84,22 +86,26 @@ export default function TeacherHome() {
             router.push(`/teacher/curriculum/${TODAY_CURRICULUM.id}`)
           }
         >
-          <Text style={styles.ctaText}>Open Curriculum</Text>
+          <Text style={styles.ctaText}>{t("teacher.openCurriculum")}</Text>
           <Ionicons name="arrow-forward" size={18} color="#fff" />
         </TouchableOpacity>
       </ImageSectionCard>
 
-      <SectionLabel title="Today's Students" />
+      <SectionLabel title={t("teacher.todaysStudents")} />
       <ImageSectionCard image={IMAGES.students} height={250}>
         <ImageChip label={`${attendanceWeekday} · ${attendanceDate}`} />
-        <Text style={styles.title}>{attendance.total} Students</Text>
+        <Text style={styles.title}>
+          {attendance.total} {t("teacher.studentsSub")}
+        </Text>
         <View style={styles.attRow}>
           <Text style={styles.stat}>
-            <Text style={styles.statStrong}>{attendance.present}</Text> Present
+            <Text style={styles.statStrong}>{attendance.present}</Text>{" "}
+            {t("parent.present")}
           </Text>
           <Text style={styles.statDot}>·</Text>
           <Text style={styles.stat}>
-            <Text style={styles.statStrong}>{attendance.absent}</Text> Absent
+            <Text style={styles.statStrong}>{attendance.absent}</Text>{" "}
+            {t("parent.absent")}
           </Text>
         </View>
         <TouchableOpacity
@@ -107,12 +113,12 @@ export default function TeacherHome() {
           activeOpacity={0.88}
           onPress={() => router.push("/teacher/classes/attendance")}
         >
-          <Text style={styles.ctaText}>Take Attendance</Text>
+          <Text style={styles.ctaText}>{t("teacher.takeAttendance")}</Text>
           <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
         </TouchableOpacity>
       </ImageSectionCard>
 
-      <SectionLabel title="Upcoming" />
+      <SectionLabel title={t("teacher.upcoming")} />
       <ImageSectionCard
         image={IMAGES.upcoming}
         height={170}
@@ -123,7 +129,7 @@ export default function TeacherHome() {
         <Text style={styles.meta}>{nextLesson.date}</Text>
       </ImageSectionCard>
 
-      <SectionLabel title="Upcoming Events" />
+      <SectionLabel title={t("teacher.upcomingEvents")} />
       {upcomingEvent ? (
         <ImageSectionCard
           image={IMAGES.events}
@@ -140,7 +146,7 @@ export default function TeacherHome() {
             activeOpacity={0.88}
             onPress={() => router.push("/teacher/schedule")}
           >
-            <Text style={styles.ctaGhostText}>View Events</Text>
+            <Text style={styles.ctaGhostText}>{t("teacher.viewEvents")}</Text>
             <Ionicons name="chevron-forward" size={16} color="#fff" />
           </TouchableOpacity>
         </ImageSectionCard>

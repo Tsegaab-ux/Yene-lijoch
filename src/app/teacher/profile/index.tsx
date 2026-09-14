@@ -6,15 +6,23 @@ import {
   SoftCard,
   AvatarBubble,
 } from "../../../components/teacher/ui";
+import { LanguageToggle } from "../../../components/LanguageToggle";
 import { TEACHER, STUDENTS } from "../../../data/teacherMock";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
+import { useLanguage } from "../../../contexts/LanguageContext";
 import { Ionicons } from "@expo/vector-icons";
 import { TouchableOpacity, View } from "react-native";
 
 export default function TeacherProfileScreen() {
+  const { t } = useLanguage();
+
   return (
     <Screen>
-      <Text style={styles.title}>Profile</Text>
+      <View style={styles.langRow}>
+        <LanguageToggle tone="dark" />
+      </View>
+
+      <Text style={styles.title}>{t("teacher.profileTitle")}</Text>
       <Text style={styles.subtitle}>Teacher account and settings</Text>
 
       <SoftCard style={styles.hero}>
@@ -24,7 +32,9 @@ export default function TeacherProfileScreen() {
         <Text style={styles.meta}>
           {TEACHER.program} · {TEACHER.group}
         </Text>
-        <Text style={styles.meta}>{STUDENTS.length} students</Text>
+        <Text style={styles.meta}>
+          {STUDENTS.length} {t("teacher.studentsSub")}
+        </Text>
       </SoftCard>
 
       <SoftCard style={{ marginTop: 16 }}>
@@ -40,7 +50,7 @@ export default function TeacherProfileScreen() {
         />
         <Menu
           icon="globe-outline"
-          title="Language"
+          title={t("common.language")}
           onPress={() => router.push("/teacher/profile/language")}
         />
         <Menu
@@ -50,13 +60,13 @@ export default function TeacherProfileScreen() {
         />
         <Menu
           icon="log-out-outline"
-          title="Logout"
+          title={t("parent.logout")}
           danger
           onPress={() =>
-            Alert.alert("Logout", "Are you sure you want to log out?", [
-              { text: "Cancel", style: "cancel" },
+            Alert.alert(t("parent.logout"), t("parent.logout"), [
+              { text: t("common.cancel"), style: "cancel" },
               {
-                text: "Logout",
+                text: t("parent.logout"),
                 style: "destructive",
                 onPress: () => router.replace("/(auth)/login"),
               },
@@ -91,6 +101,10 @@ function Menu({
 }
 
 const styles = StyleSheet.create({
+  langRow: {
+    alignItems: "flex-end",
+    marginBottom: 8,
+  },
   title: { fontSize: 28, fontWeight: "700", color: C.text, letterSpacing: -0.4 },
   subtitle: { marginTop: 6, color: C.muted, fontSize: 14, marginBottom: 8 },
   hero: { alignItems: "center", paddingVertical: 24 },

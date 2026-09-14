@@ -11,6 +11,7 @@ import { AdminNotice } from "../../data/sharedContent";
 import { AdminColors as C } from "../../constants/adminTheme";
 import { useSharedContent } from "../../contexts/SharedContentContext";
 import { useChat } from "../../contexts/ChatContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { router } from "expo-router";
 
 type FeedItem = {
@@ -27,7 +28,17 @@ const FILTERS = ["All", "Chat", "Videos", "Curriculum", "Groups", "Events"] as c
 export default function AdminNotificationsScreen() {
   const { adminNotices, markAdminNoticesRead } = useSharedContent();
   const { teacherMessages, conversations, getConversation } = useChat();
+  const { t } = useLanguage();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
+
+  const filterLabel = (item: (typeof FILTERS)[number]) => {
+    if (item === "All") return t("parent.all");
+    if (item === "Videos") return t("tabs.videos");
+    if (item === "Curriculum") return t("tabs.curriculum");
+    if (item === "Groups") return t("tabs.groups");
+    if (item === "Events") return t("tabs.events");
+    return item;
+  };
 
   useEffect(() => {
     markAdminNoticesRead();
@@ -65,8 +76,8 @@ export default function AdminNotificationsScreen() {
   return (
     <Screen>
       <TopBar
-        title="Notifications"
-        subtitle="Teacher chat + content updates"
+        title={t("admin.notificationsTitle")}
+        subtitle={t("admin.notificationsSub")}
         onBack={() => router.back()}
       />
 
@@ -78,7 +89,7 @@ export default function AdminNotificationsScreen() {
         {FILTERS.map((item) => (
           <Pill
             key={item}
-            label={item}
+            label={filterLabel(item)}
             active={filter === item}
             onPress={() => setFilter(item)}
           />

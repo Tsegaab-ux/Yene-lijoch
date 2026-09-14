@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { PhoneShell, usePhoneFrame } from "../../components/auth/PhoneShell";
+import { LanguageToggle } from "../../components/LanguageToggle";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 export type AuthRole = "parent" | "teacher" | "admin";
 
@@ -25,27 +27,21 @@ type RoleCard = {
   soft: string;
 };
 
-const ROLES: RoleCard[] = [
+const ROLE_BASE: Omit<RoleCard, "title" | "subtitle">[] = [
   {
     id: "parent",
-    title: "Parent",
-    subtitle: "Follow lessons, attendance, events, and chat with teachers.",
     icon: "home-outline",
     color: "#3D6B5A",
     soft: "#E3EFE9",
   },
   {
     id: "teacher",
-    title: "Teacher",
-    subtitle: "Lead curriculum, mark attendance, and message families.",
     icon: "school-outline",
     color: "#C45C26",
     soft: "#F8E8DC",
   },
   {
     id: "admin",
-    title: "Admin",
-    subtitle: "Upload videos, set curriculum, and manage groups.",
     icon: "shield-checkmark-outline",
     color: "#2D6A4F",
     soft: "#E4F2EB",
@@ -53,9 +49,21 @@ const ROLES: RoleCard[] = [
 ];
 
 export default function RoleSelectScreen() {
+  const { t } = useLanguage();
   const { frameW, frameH } = usePhoneFrame();
   const listRef = useRef<FlatList<RoleCard>>(null);
   const [index, setIndex] = useState(0);
+
+  const ROLES = useMemo<RoleCard[]>(
+    () =>
+      ROLE_BASE.map((role) => ({
+        ...role,
+        title: t(`role.${role.id}`),
+        subtitle: t(`role.${role.id}Desc`),
+      })),
+    [t]
+  );
+
   const selected = ROLES[index];
 
   const cardGap = 14;
@@ -82,15 +90,17 @@ export default function RoleSelectScreen() {
     <PhoneShell background="#EDE8E0">
       <View style={[styles.root, { width: frameW, height: frameH }]}>
         <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+          <View style={styles.langRow}>
+            <LanguageToggle tone="dark" />
+          </View>
+
           <View style={styles.header}>
             <TouchableOpacity style={styles.back} onPress={() => router.back()}>
               <Ionicons name="chevron-back" size={22} color="#2C2A26" />
             </TouchableOpacity>
-            <Text style={styles.kicker}>Join Yene Lijoch</Text>
-            <Text style={styles.title}>Who are you signing up as?</Text>
-            <Text style={styles.subtitle}>
-              Slide to choose Parent, Teacher, or Admin.
-            </Text>
+            <Text style={styles.kicker}>{t("role.kicker")}</Text>
+            <Text style={styles.title}>{t("role.title")}</Text>
+            <Text style={styles.subtitle}>{t("role.subtitle")}</Text>
           </View>
 
           <View style={styles.carousel}>
@@ -145,10 +155,10 @@ export default function RoleSelectScreen() {
                       ]}
                     >
                       <Ionicons name="checkmark" size={14} color="#fff" />
-                      <Text style={styles.selectedText}>Selected</Text>
+                      <Text style={styles.selectedText}>{t("common.selected")}</Text>
                     </View>
                   ) : (
-                    <Text style={styles.tapHint}>Tap or slide</Text>
+                    <Text style={styles.tapHint}>{t("role.tapOrSlide")}</Text>
                   )}
                 </TouchableOpacity>
               )}
@@ -176,14 +186,16 @@ export default function RoleSelectScreen() {
               onPress={continueSignup}
               activeOpacity={0.88}
             >
-              <Text style={styles.ctaText}>Continue as {selected.title}</Text>
+              <Text style={styles.ctaText}>
+                {t("role.continueAs", { role: selected.title })}
+              </Text>
               <Ionicons name="arrow-forward" size={18} color="#fff" />
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => router.push("/(auth)/login")}>
               <Text style={styles.loginLink}>
-                Already registered?{" "}
-                <Text style={styles.loginBold}>Login</Text>
+                {t("role.alreadyRegistered")}{" "}
+                <Text style={styles.loginBold}>{t("common.login")}</Text>
               </Text>
             </TouchableOpacity>
           </View>
@@ -199,6 +211,11 @@ const styles = StyleSheet.create({
   },
   safe: {
     flex: 1,
+  },
+  langRow: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    alignItems: "flex-end",
   },
   header: {
     paddingHorizontal: 20,

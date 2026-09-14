@@ -3,6 +3,7 @@ import { Text, StyleSheet } from "react-native";
 import { router } from "expo-router";
 import { ChatListShell, ConversationRow } from "../../../components/chat/ChatUI";
 import { useChat } from "../../../contexts/ChatContext";
+import { useLanguage } from "../../../contexts/LanguageContext";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
 
 const theme = {
@@ -19,6 +20,7 @@ const theme = {
 
 export default function TeacherMessagesList() {
   const { conversations } = useChat();
+  const { t } = useLanguage();
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
@@ -34,8 +36,8 @@ export default function TeacherMessagesList() {
 
   return (
     <ChatListShell
-      title="Messages"
-      subtitle="Chat with parents"
+      title={t("teacher.messagesTitle")}
+      subtitle={t("teacher.messagesSub")}
       theme={theme}
       search={search}
       onSearch={setSearch}

@@ -20,6 +20,7 @@ import {
 import { SundayStudent } from "../../../data/teacherMock";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
 import { useTeacherStudents } from "../../../contexts/TeacherStudentsContext";
+import { useLanguage } from "../../../contexts/LanguageContext";
 
 type Mark = "present" | "absent";
 
@@ -43,6 +44,7 @@ export default function AttendanceScreen() {
     attendanceLabel,
     setAttendanceDay,
   } = useTeacherStudents();
+  const { t } = useLanguage();
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState("");
   const [parent, setParent] = useState("");
@@ -118,12 +120,12 @@ export default function AttendanceScreen() {
 
   return (
     <Screen>
-      <BackHeader title="Attendance" subtitle={attendanceLabel} />
+      <BackHeader title={t("teacher.attendance")} subtitle={attendanceLabel} />
 
       <SoftCard style={styles.dateCard}>
         <View style={styles.dateHeader}>
           <Ionicons name="calendar-outline" size={18} color={C.primary} />
-          <Text style={styles.dateCardTitle}>Set attendance date</Text>
+          <Text style={styles.dateCardTitle}>{t("teacher.setDate")}</Text>
         </View>
         <Text style={styles.dateHint}>
           Fill in the day and date yourself for this attendance session.
@@ -163,30 +165,36 @@ export default function AttendanceScreen() {
 
         <TouchableOpacity style={styles.saveDateBtn} onPress={handleSaveDate}>
           <Ionicons name="checkmark" size={18} color="#fff" />
-          <Text style={styles.saveDateText}>Save Date</Text>
+          <Text style={styles.saveDateText}>{t("teacher.saveDate")}</Text>
         </TouchableOpacity>
       </SoftCard>
 
       <View style={styles.topRow}>
-        <Text style={styles.count}>{summary.total} Students</Text>
+        <Text style={styles.count}>
+          {summary.total} {t("teacher.studentsSub")}
+        </Text>
         <TouchableOpacity
           style={styles.addChip}
           onPress={() => setShowAdd(true)}
           activeOpacity={0.85}
         >
           <Ionicons name="person-add-outline" size={16} color={C.primary} />
-          <Text style={styles.addChipText}>Add Student</Text>
+          <Text style={styles.addChipText}>{t("teacher.addStudent")}</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <Ionicons name="checkmark" size={16} color={C.success} />
-          <Text style={[styles.legendText, { color: C.success }]}>Present</Text>
+          <Text style={[styles.legendText, { color: C.success }]}>
+            {t("parent.present")}
+          </Text>
         </View>
         <View style={styles.legendItem}>
           <Ionicons name="close" size={16} color={C.danger} />
-          <Text style={[styles.legendText, { color: C.danger }]}>Absent</Text>
+          <Text style={[styles.legendText, { color: C.danger }]}>
+            {t("parent.absent")}
+          </Text>
         </View>
       </View>
 
@@ -202,7 +210,7 @@ export default function AttendanceScreen() {
       </SoftCard>
 
       <PrimaryButton
-        label="Save Attendance"
+        label={t("teacher.saveAttendance")}
         icon="checkmark-done-outline"
         onPress={() => {
           setAttendanceDay(weekdayDraft, dateDraft);
@@ -210,7 +218,7 @@ export default function AttendanceScreen() {
           Alert.alert(
             "Attendance saved",
             `${weekdayDraft}, ${dateDraft}\n${summary.present} present · ${summary.absent} absent`,
-            [{ text: "Done", onPress: () => router.back() }]
+            [{ text: t("common.done"), onPress: () => router.back() }]
           );
         }}
       />
@@ -223,7 +231,7 @@ export default function AttendanceScreen() {
       >
         <Pressable style={styles.overlay} onPress={() => setShowAdd(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Add Student</Text>
+            <Text style={styles.modalTitle}>{t("teacher.addStudent")}</Text>
             <Text style={styles.modalSub}>
               Add a child to your group attendance list.
             </Text>
@@ -246,12 +254,15 @@ export default function AttendanceScreen() {
               onChangeText={setParent}
             />
 
-            <PrimaryButton label="Add to Attendance" onPress={handleAddStudent} />
+            <PrimaryButton
+              label={t("teacher.addStudent")}
+              onPress={handleAddStudent}
+            />
             <TouchableOpacity
               style={styles.cancel}
               onPress={() => setShowAdd(false)}
             >
-              <Text style={styles.cancelText}>Cancel</Text>
+              <Text style={styles.cancelText}>{t("common.cancel")}</Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
