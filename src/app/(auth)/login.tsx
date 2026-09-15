@@ -32,9 +32,8 @@ export default function LoginScreen(): React.ReactElement {
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   
-  const { login } = useAuth();
+  const { login, isLoading } = useAuth();
 
   const handleLogin = async (): Promise<void> => {
     // Validate input
@@ -55,14 +54,11 @@ export default function LoginScreen(): React.ReactElement {
       return;
     }
 
-    setIsLoading(true);
-
     try {
       // Use the login function from the auth hook
       await login(username, password, false);
       navigateBasedOnRole(); // Navigate based on role
       getDashboardRoute();
-      // The hook will handle navigation automatically
     } catch (error: unknown) {
       // Type guard to check if error has response property
       const err = error as ErrorResponse;
@@ -82,9 +78,7 @@ export default function LoginScreen(): React.ReactElement {
           "An unexpected error occurred. Please try again."
         );
       }
-    } finally {
-      setIsLoading(false);
-    }
+    } 
   };
 
   return (
