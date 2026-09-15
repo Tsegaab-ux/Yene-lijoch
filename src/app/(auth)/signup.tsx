@@ -17,6 +17,7 @@ import { LanguageToggle } from "../../components/LanguageToggle";
 import { useLanguage } from "../../contexts/LanguageContext";
 
 type Role = "parent" | "teacher" | "admin";
+type Relationship = "father" | "mother" | "guardian";
 
 const ROLE_META: Record<
   Role,
@@ -26,6 +27,19 @@ const ROLE_META: Record<
   teacher: { color: "#C45C26", home: "/teacher" },
   admin: { color: "#2D6A4F", home: "/admin" },
 };
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseStudentIds(raw: string): number[] | null {
+  const parts = raw
+    .split(/[, ]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return null;
+  const ids = parts.map((p) => Number(p));
+  if (ids.some((n) => !Number.isInteger(n) || n <= 0)) return null;
+  return ids;
+}
 
 export default function Signup() {
   const { t } = useLanguage();
@@ -39,28 +53,102 @@ export default function Signup() {
   const meta = ROLE_META[role];
   const roleLabel = t(`role.${role}`);
 
-  const [fullName, setFullName] = useState("");
+  // Shared
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleSignup = () => {
-    if (!fullName || !email || !phone || !password || !confirmPassword) {
-      Alert.alert(t("common.error"), t("signup.missing"));
-      return;
-    }
+  // Parent (POST /parents/)
+  const [contact, setContact] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [address, setAddress] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [studentIds, setStudentIds] = useState("");
+  const [relationship, setRelationship] = useState<Relationship>("mother");
 
+  // Teacher (POST /teachers/)
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+
+  // Admin (demo form)
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+
+  const handleSignup = () => {
     if (password !== confirmPassword) {
       Alert.alert(t("common.error"), t("signup.passwordMismatch"));
       return;
     }
-
     if (password.length < 6) {
       Alert.alert(t("common.error"), t("signup.passwordShort"));
       return;
+    }
+
+    if (role === "parent") {
+      if (!username.trim() || !email.trim() || !password) {
+        Alert.alert(t("common.error"), t("signup.missing"));
+        return;
+      }
+      if (dateOfBirth.trim() && !DATE_RE.test(dateOfBirth.trim())) {
+        Alert.alert(t("common.error"), t("signup.invalidDate"));
+        return;
+      }
+      const orgId = Number(organization.trim());
+      if (!organization.trim() || !Number.isInteger(orgId) || orgId <= 0) {
+        Alert.alert(t("common.error"), t("signup.invalidOrganization"));
+        return;
+      }
+      const students = parseStudentIds(studentIds);
+      if (!students) {
+        Alert.alert(t("common.error"), t("signup.invalidStudents"));
+        return;
+      }
+      // Payload shape matches Parent API — not sent yet (no backend)
+      void {
+        username: username.trim(),
+        email: email.trim(),
+        password,
+        contact: contact.trim() || undefined,
+        date_of_birth: dateOfBirth.trim() || undefined,
+        address: address.trim() || undefined,
+        parent_details: {
+          organization: orgId,
+          student: students,
+          relationship,
+        },
+      };
+    } else if (role === "teacher") {
+      if (
+        !username.trim() ||
+        !email.trim() ||
+        !firstName.trim() ||
+        !lastName.trim() ||
+        !password
+      ) {
+        Alert.alert(t("common.error"), t("signup.missing"));
+        return;
+      }
+      const orgId = Number(organization.trim());
+      if (!organization.trim() || !Number.isInteger(orgId) || orgId <= 0) {
+        Alert.alert(t("common.error"), t("signup.invalidOrganization"));
+        return;
+      }
+      void {
+        username: username.trim(),
+        email: email.trim(),
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        password,
+        teacher_details: { organization: orgId },
+      };
+    } else {
+      if (!fullName || !email || !phone || !password || !confirmPassword) {
+        Alert.alert(t("common.error"), t("signup.missing"));
+        return;
+      }
     }
 
     Alert.alert(t("common.success"), t("signup.success", { role: roleLabel }), [
@@ -109,124 +197,212 @@ export default function Signup() {
             <Text style={styles.subtitle}>{t("signup.subtitle")}</Text>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>{t("signup.fullName")}</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons
-                name="person-outline"
-                size={20}
-                color="#777"
-                style={styles.icon}
+          {role === "parent" && (
+            <>
+              <Field
+                label={t("signup.username")}
+                icon="person-outline"
+                placeholder={t("signup.usernamePlaceholder")}
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
               />
-              <TextInput
-                style={styles.input}
-                placeholder={t("signup.fullNamePlaceholder")}
-                placeholderTextColor="#999"
-                value={fullName}
-                onChangeText={setFullName}
-                autoCapitalize="words"
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>{t("signup.email")}</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons
-                name="mail-outline"
-                size={20}
-                color="#777"
-                style={styles.icon}
-              />
-              <TextInput
-                style={styles.input}
+              <Field
+                label={t("signup.email")}
+                icon="mail-outline"
                 placeholder={t("signup.emailPlaceholder")}
-                placeholderTextColor="#999"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
-            </View>
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>{t("signup.phone")}</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons
-                name="call-outline"
-                size={20}
-                color="#777"
-                style={styles.icon}
+              <Field
+                label={`${t("signup.contact")} (${t("signup.optional")})`}
+                icon="call-outline"
+                placeholder={t("signup.contactPlaceholder")}
+                value={contact}
+                onChangeText={setContact}
+                keyboardType="phone-pad"
               />
-              <TextInput
-                style={styles.input}
+              <Field
+                label={`${t("signup.dateOfBirth")} (${t("signup.optional")})`}
+                icon="calendar-outline"
+                placeholder={t("signup.dateOfBirthPlaceholder")}
+                value={dateOfBirth}
+                onChangeText={setDateOfBirth}
+                autoCapitalize="none"
+              />
+              <Field
+                label={`${t("signup.address")} (${t("signup.optional")})`}
+                icon="location-outline"
+                placeholder={t("signup.addressPlaceholder")}
+                value={address}
+                onChangeText={setAddress}
+              />
+              <Field
+                label={t("signup.organization")}
+                icon="business-outline"
+                placeholder={t("signup.organizationPlaceholder")}
+                value={organization}
+                onChangeText={setOrganization}
+                keyboardType="number-pad"
+              />
+              <Field
+                label={t("signup.studentIds")}
+                icon="people-outline"
+                placeholder={t("signup.studentIdsPlaceholder")}
+                value={studentIds}
+                onChangeText={setStudentIds}
+                autoCapitalize="none"
+              />
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>{t("signup.relationship")}</Text>
+                <View style={styles.chipRow}>
+                  {(
+                    [
+                      ["father", t("signup.father")],
+                      ["mother", t("signup.mother")],
+                      ["guardian", t("signup.guardian")],
+                    ] as const
+                  ).map(([value, label]) => {
+                    const active = relationship === value;
+                    return (
+                      <TouchableOpacity
+                        key={value}
+                        style={[
+                          styles.relChip,
+                          active && {
+                            backgroundColor: meta.color,
+                            borderColor: meta.color,
+                          },
+                        ]}
+                        onPress={() => setRelationship(value)}
+                        activeOpacity={0.85}
+                      >
+                        <Text
+                          style={[
+                            styles.relChipText,
+                            active && styles.relChipTextActive,
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+              <PasswordFields
+                password={password}
+                setPassword={setPassword}
+                confirmPassword={confirmPassword}
+                setConfirmPassword={setConfirmPassword}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                showConfirmPassword={showConfirmPassword}
+                setShowConfirmPassword={setShowConfirmPassword}
+                t={t}
+              />
+            </>
+          )}
+
+          {role === "teacher" && (
+            <>
+              <Field
+                label={t("signup.username")}
+                icon="person-outline"
+                placeholder={t("signup.usernamePlaceholder")}
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+              />
+              <Field
+                label={t("signup.email")}
+                icon="mail-outline"
+                placeholder={t("signup.emailPlaceholder")}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <Field
+                label={t("signup.firstName")}
+                icon="person-outline"
+                placeholder={t("signup.firstNamePlaceholder")}
+                value={firstName}
+                onChangeText={setFirstName}
+                autoCapitalize="words"
+              />
+              <Field
+                label={t("signup.lastName")}
+                icon="person-outline"
+                placeholder={t("signup.lastNamePlaceholder")}
+                value={lastName}
+                onChangeText={setLastName}
+                autoCapitalize="words"
+              />
+              <Field
+                label={t("signup.organization")}
+                icon="business-outline"
+                placeholder={t("signup.organizationPlaceholder")}
+                value={organization}
+                onChangeText={setOrganization}
+                keyboardType="number-pad"
+              />
+              <PasswordFields
+                password={password}
+                setPassword={setPassword}
+                confirmPassword={confirmPassword}
+                setConfirmPassword={setConfirmPassword}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                showConfirmPassword={showConfirmPassword}
+                setShowConfirmPassword={setShowConfirmPassword}
+                t={t}
+              />
+            </>
+          )}
+
+          {role === "admin" && (
+            <>
+              <Field
+                label={t("signup.fullName")}
+                icon="person-outline"
+                placeholder={t("signup.fullNamePlaceholder")}
+                value={fullName}
+                onChangeText={setFullName}
+                autoCapitalize="words"
+              />
+              <Field
+                label={t("signup.email")}
+                icon="mail-outline"
+                placeholder={t("signup.emailPlaceholder")}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <Field
+                label={t("signup.phone")}
+                icon="call-outline"
                 placeholder={t("signup.phonePlaceholder")}
-                placeholderTextColor="#999"
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
               />
-            </View>
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>{t("signup.password")}</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons
-                name="lock-closed-outline"
-                size={20}
-                color="#777"
-                style={styles.icon}
+              <PasswordFields
+                password={password}
+                setPassword={setPassword}
+                confirmPassword={confirmPassword}
+                setConfirmPassword={setConfirmPassword}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                showConfirmPassword={showConfirmPassword}
+                setShowConfirmPassword={setShowConfirmPassword}
+                t={t}
               />
-              <TextInput
-                style={styles.input}
-                placeholder={t("signup.passwordPlaceholder")}
-                placeholderTextColor="#999"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={21}
-                  color="#777"
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>{t("signup.confirmPassword")}</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons
-                name="lock-closed-outline"
-                size={20}
-                color="#777"
-                style={styles.icon}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder={t("signup.confirmPlaceholder")}
-                placeholderTextColor="#999"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirmPassword}
-              />
-              <TouchableOpacity
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                <Ionicons
-                  name={
-                    showConfirmPassword ? "eye-off-outline" : "eye-outline"
-                  }
-                  size={21}
-                  color="#777"
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
+            </>
+          )}
 
           <TouchableOpacity
             style={[styles.signupButton, { backgroundColor: meta.color }]}
@@ -249,6 +425,128 @@ export default function Signup() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+type FieldProps = {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  placeholder: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  keyboardType?: "default" | "email-address" | "phone-pad" | "number-pad";
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+};
+
+function Field({
+  label,
+  icon,
+  placeholder,
+  value,
+  onChangeText,
+  keyboardType = "default",
+  autoCapitalize = "sentences",
+}: FieldProps) {
+  return (
+    <View style={styles.inputContainer}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.inputWrapper}>
+        <Ionicons name={icon} size={20} color="#777" style={styles.icon} />
+        <TextInput
+          style={styles.input}
+          placeholder={placeholder}
+          placeholderTextColor="#999"
+          value={value}
+          onChangeText={onChangeText}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+        />
+      </View>
+    </View>
+  );
+}
+
+type PasswordProps = {
+  password: string;
+  setPassword: (v: string) => void;
+  confirmPassword: string;
+  setConfirmPassword: (v: string) => void;
+  showPassword: boolean;
+  setShowPassword: (v: boolean) => void;
+  showConfirmPassword: boolean;
+  setShowConfirmPassword: (v: boolean) => void;
+  t: (path: string, vars?: Record<string, string | number>) => string;
+};
+
+function PasswordFields({
+  password,
+  setPassword,
+  confirmPassword,
+  setConfirmPassword,
+  showPassword,
+  setShowPassword,
+  showConfirmPassword,
+  setShowConfirmPassword,
+  t,
+}: PasswordProps) {
+  return (
+    <>
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>{t("signup.password")}</Text>
+        <View style={styles.inputWrapper}>
+          <Ionicons
+            name="lock-closed-outline"
+            size={20}
+            color="#777"
+            style={styles.icon}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder={t("signup.passwordPlaceholder")}
+            placeholderTextColor="#999"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+          />
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <Ionicons
+              name={showPassword ? "eye-off-outline" : "eye-outline"}
+              size={21}
+              color="#777"
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>{t("signup.confirmPassword")}</Text>
+        <View style={styles.inputWrapper}>
+          <Ionicons
+            name="lock-closed-outline"
+            size={20}
+            color="#777"
+            style={styles.icon}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder={t("signup.confirmPlaceholder")}
+            placeholderTextColor="#999"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry={!showConfirmPassword}
+          />
+          <TouchableOpacity
+            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+          >
+            <Ionicons
+              name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+              size={21}
+              color="#777"
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </>
   );
 }
 
@@ -337,6 +635,27 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: "#2C2A26",
+  },
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  relChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#E5DFD5",
+    backgroundColor: "#FFFFFF",
+  },
+  relChipText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#2C2A26",
+  },
+  relChipTextActive: {
+    color: "#FFFFFF",
   },
   signupButton: {
     height: 56,
