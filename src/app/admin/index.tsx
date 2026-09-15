@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,13 +14,16 @@ import { AdminColors as C } from "../../constants/adminTheme";
 import { useSharedContent } from "../../contexts/SharedContentContext";
 import { useChat } from "../../contexts/ChatContext";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useStudentData } from "@/hooks/useStudentData";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 export default function AdminHome() {
+  const { logout, user } = useAuthContext();
   const { t } = useLanguage();
+  const { students, fetchStudents } = useStudentData();
   const {
     media,
     curriculum,
-    students,
     groups,
     events,
     adminNotices,
@@ -30,13 +33,24 @@ export default function AdminHome() {
     adminNotices.filter((n) => n.unread).length +
     teacherMessages.slice(0, 5).length;
 
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login" as any)
+  }
+
+  useEffect(()=> {
+    fetchStudents();
+  },[]);
+
+  console.log(students)
+
   return (
     <Screen>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={styles.kicker}>{t("admin.portal")}</Text>
           <Text style={styles.title}>
-            {t("admin.hi", { name: ADMIN_PROFILE.name.split(" ")[0] })}
+            {t("admin.hi", { name: user?.username || "" })}
           </Text>
           <Text style={styles.sub}>{ADMIN_PROFILE.school}</Text>
         </View>
@@ -115,7 +129,11 @@ export default function AdminHome() {
           ])
         }
       >
-        <Text style={styles.logout}>{t("admin.logout")}</Text>
+        <TouchableOpacity 
+          style={styles.logout}
+          onPress={handleLogout}>
+          <Text style={styles.logoutText}>{t("admin.logout")}</Text>
+        </TouchableOpacity>
       </SoftCard>
     </Screen>
   );
@@ -189,6 +207,10 @@ const styles = StyleSheet.create({
   noticeBody: { marginTop: 4, color: C.muted, fontSize: 13, lineHeight: 18 },
   noticeTime: { marginTop: 6, color: C.muted, fontSize: 11 },
   logout: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoutText: {
     textAlign: "center",
     color: C.danger,
     fontWeight: "800",

@@ -16,11 +16,8 @@ export const useRoleNavigation = () => {
       case 'parent':
         router.replace("/parent");
         break;
-      case 'student':
-        router.replace("/");
-        break;
-      case 'pastor':
-        router.replace("/");
+      case 'admin':
+        router.replace("/admin");
         break;
       default:
         router.replace("/");

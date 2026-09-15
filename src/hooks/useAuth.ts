@@ -142,9 +142,6 @@ export function useAuth(): AuthContext {
         });
 
         toast.success("Login successful!");
-        
-        // Redirect to chat
-        router.push("/");
       } catch (error: any) {
         console.error("Login error:", error);
         // Redirect to login page
@@ -195,8 +192,6 @@ export function useAuth(): AuthContext {
 
         toast.success("Registration successful!");
         
-        // Redirect to chat
-        router.push("/");
       } catch (error: any) {
         console.error("Registration error:", error);
         // Redirect to signup page
