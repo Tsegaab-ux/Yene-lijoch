@@ -1,27 +1,57 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Screen, SoftCard } from "../../../components/teacher/ui";
 import {
   CURRICULUM_TITLE,
-  CURRICULUM_MONTHS,
-  CurriculumLesson,
   CurriculumStatus,
 } from "../../../data/teacherMock";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
 import { useLanguage } from "../../../contexts/LanguageContext";
+import { TeacherLesson, useTeacherCurriculumContext } from "@/contexts/TeacherCurriculumContext";
 
 export default function CurriculumScreen() {
   const { t } = useLanguage();
+  const { months, isLoading, error, refetch } =
+    useTeacherCurriculumContext();
+
+  const subtitle = t("teacher.curriculumSubtitle");
 
   return (
     <Screen>
       <Text style={styles.title}>{t("teacher.curriculumTitle")}</Text>
       <Text style={styles.subtitle}>{CURRICULUM_TITLE}</Text>
 
-      {CURRICULUM_MONTHS.map((block) => (
-        <SoftCard key={block.month} style={styles.monthCard}>
+      {isLoading && months.length === 0 ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={C.primary} />
+          <Text style={styles.muted}>Loading curriculum…</Text>
+        </View>
+      ) : null}
+
+      {error && months.length === 0 ? (
+        <SoftCard>
+          <Text style={styles.muted}>{error}</Text>
+          <Text
+            style={styles.retry}
+            onPress={refetch}
+          >
+            Tap to retry
+          </Text>
+        </SoftCard>
+      ) : null}
+
+      {!isLoading && !error && months.length === 0 ? (
+        <SoftCard>
+          <Text style={styles.muted}>
+            No lessons scheduled yet.
+          </Text>
+        </SoftCard>
+      ) : null}
+
+      {months.map((block) => (
+        <SoftCard key={block.monthKey} style={styles.monthCard}>
           <Text style={styles.monthTitle}>{block.month}</Text>
 
           {block.lessons.map((lesson, index) => (
@@ -41,7 +71,7 @@ function LessonRow({
   lesson,
   last,
 }: {
-  lesson: CurriculumLesson;
+  lesson: TeacherLesson;
   last: boolean;
 }) {
   const meta = statusMeta(lesson.status);
@@ -93,6 +123,22 @@ function statusMeta(status: CurriculumStatus): {
 }
 
 const styles = StyleSheet.create({
+  center: {
+    alignItems: "center",
+    paddingVertical: 24,
+    gap: 8,
+  },
+  muted: {
+    color: C.muted,
+    fontSize: 14,
+    textAlign: "center",
+  },
+  retry: {
+    marginTop: 8,
+    color: C.primary,
+    fontWeight: "700",
+    textAlign: "center",
+  },
   title: {
     fontSize: 28,
     fontWeight: "700",

@@ -8,6 +8,7 @@ import {
   Modal,
   TouchableOpacity,
   Pressable,
+  Platform,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,10 +18,27 @@ import {
   BackHeader,
   PrimaryButton,
 } from "../../../components/teacher/ui";
-import { SundayStudent } from "../../../data/teacherMock";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
-import { useTeacherStudents } from "../../../contexts/TeacherStudentsContext";
 import { useLanguage } from "../../../contexts/LanguageContext";
+import { useTeacher } from "@/contexts/TeacherContext";
+import { useTeacherCurriculumContext } from "@/contexts/TeacherCurriculumContext";
+import { useAttendance } from "@/hooks/useAttendance";
+import { useStudentData } from "@/hooks/useStudentData";
+import { Student } from "@/types/studentTypes";
+import { AttendanceStatus } from "@/types/attendanceTypes";
+
+// ------------------------------------------------------------------
+// Cross-platform alert — RN Web stubs Alert.alert
+// ------------------------------------------------------------------
+function notify(title: string, message: string, onOk?: () => void) {
+  if (Platform.OS === "web") {
+    // eslint-disable-next-line no-alert
+    window.alert(`${title}\n\n${message}`);
+    onOk?.();
+  } else {
+    Alert.alert(title, message, [{ text: "OK", onPress: onOk }]);
+  }
+}
 
 type Mark = "present" | "absent";
 
@@ -34,49 +52,78 @@ const WEEKDAYS = [
   "Saturday",
 ];
 
+// ------------------------------------------------------------------
+// Screen
+// ------------------------------------------------------------------
 export default function AttendanceScreen() {
+  // ---- Real data sources -----------------------------------------
+  const { primaryClass } = useTeacher();
+  const { todayLesson } = useTeacherCurriculumContext();
+  const { createStudent } = useStudentData();
+
   const {
-    students,
-    addStudent,
-    updateAttendance,
-    attendanceWeekday,
-    attendanceDate,
-    attendanceLabel,
-    setAttendanceDay,
-  } = useTeacherStudents();
+    students: apiStudents,
+    existing,
+    isSaving,
+    error: apiError,
+    reload,
+    saveAttendance,
+  } = useAttendance(primaryClass?.id, todayLesson?.id);
+
   const { t } = useLanguage();
+
+  // ---- Local UI state (unchanged) --------------------------------
   const [showAdd, setShowAdd] = useState(false);
   const [name, setName] = useState("");
   const [parent, setParent] = useState("");
-  const [weekdayDraft, setWeekdayDraft] = useState(attendanceWeekday);
-  const [dateDraft, setDateDraft] = useState(attendanceDate);
+
+  const today = new Date();
+  const [weekdayDraft, setWeekdayDraft] = useState(
+    WEEKDAYS[today.getDay()]
+  );
+  const [dateDraft, setDateDraft] = useState(
+    today.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    })
+  );
+
+  // attendanceLabel — was from the mock; now derived from local state
+  const attendanceLabel = `${weekdayDraft}, ${dateDraft}`;
+
+  // Marks state — same shape as before, same key type ("string" ids)
   const [marks, setMarks] = useState<Record<string, Mark>>({});
 
-  useEffect(() => {
-    setWeekdayDraft(attendanceWeekday);
-    setDateDraft(attendanceDate);
-  }, [attendanceWeekday, attendanceDate]);
-
+  // ---- Pre-fill marks from server + students ----------------------
   useEffect(() => {
     setMarks((prev) => {
       const next = { ...prev };
-      students.forEach((s) => {
-        if (!next[s.id]) {
-          next[s.id] = s.attendance === "absent" ? "absent" : "present";
+      apiStudents.forEach((s) => {
+        const key = String(s.id);
+        if (!next[key]) {
+          const serverStatus = existing[key];
+          next[key] =
+            serverStatus === "absent" ? "absent" : "present";
         }
       });
       return next;
     });
-  }, [students]);
+  }, [apiStudents, existing]);
 
-  const list = useMemo(
+  // ---- Adapt the roster to the shape the UI already expects ------
+  // The original code read `s.attendance`. We compute it from `marks`.
+  const students = useMemo(
     () =>
-      students.map((s) => ({
+      apiStudents.map((s) => ({
         ...s,
-        attendance: marks[s.id] ?? "present",
+        id: String(s.id), // keep ids as strings, matching the mock
+        attendance: marks[String(s.id)] ?? "present",
       })),
-    [students, marks]
+    [apiStudents, marks]
   );
+
+  const list = students; // alias, to keep the JSX identical
 
   const summary = useMemo(() => {
     const present = list.filter((s) => s.attendance === "present").length;
@@ -84,6 +131,7 @@ export default function AttendanceScreen() {
     return { present, absent, total: list.length };
   }, [list]);
 
+  // ---- Handlers ---------------------------------------------------
   const toggle = (id: string) => {
     setMarks((prev) => ({
       ...prev,
@@ -93,34 +141,68 @@ export default function AttendanceScreen() {
 
   const handleSaveDate = () => {
     if (!dateDraft.trim()) {
-      Alert.alert("Missing date", "Please enter the attendance date.");
+      notify("Missing date", "Please enter the attendance date.");
       return;
     }
-    setAttendanceDay(weekdayDraft, dateDraft);
-    Alert.alert("Date saved", `Attendance date set to ${weekdayDraft}, ${dateDraft}.`);
+    notify("Date saved", `Attendance date set to ${weekdayDraft}, ${dateDraft}.`);
   };
 
-  const handleAddStudent = () => {
+  const handleAddStudent = async () => {
     if (!name.trim()) {
-      Alert.alert("Missing name", "Please enter the student’s name.");
+      notify("Missing name", "Please enter the student's name.");
       return;
     }
-
-    const created = addStudent({
-      name,
-      parent: parent || "Parent",
-    });
-
-    setMarks((prev) => ({ ...prev, [created.id]: "present" }));
-    setName("");
-    setParent("");
-    setShowAdd(false);
-    Alert.alert("Student added", `${created.name} was added to attendance.`);
+    if (!primaryClass?.id) {
+      notify("No group", "You're not assigned to a group yet.");
+      return;
+    }
+    try {
+      const created = await createStudent({
+        name: name.trim(),
+        parentName: parent.trim() || "Parent",
+        groupId: primaryClass.id,
+      });
+      setMarks((prev) => ({ ...prev, [String(created.id)]: "present" }));
+      setName("");
+      setParent("");
+      setShowAdd(false);
+      notify("Student added", `${created.name} was added to attendance.`);
+      reload();
+    } catch (err) {
+      notify("Could not add student", String(err));
+    }
   };
 
+  const handleSaveAttendance = async () => {
+    if (!todayLesson?.id) {
+      notify("No lesson", "There's no lesson scheduled for today.");
+      return;
+    }
+    try {
+      await saveAttendance(marks);
+      notify(
+        "Attendance saved",
+        `${weekdayDraft}, ${dateDraft}\n${summary.present} present · ${summary.absent} absent`,
+        () => router.back()
+      );
+    } catch (err) {
+      notify("Could not save", String(err));
+    }
+  };
+
+  // ---- Render (identical to original, plus two guard branches) ---
   return (
     <Screen>
       <BackHeader title={t("teacher.attendance")} subtitle={attendanceLabel} />
+
+      {!todayLesson ? (
+        <SoftCard style={{ marginBottom: 14 }}>
+          <Text style={styles.dateHint}>
+            No lesson is scheduled for today. Ask your admin to mark a
+            lesson as "this week" to enable attendance.
+          </Text>
+        </SoftCard>
+      ) : null}
 
       <SoftCard style={styles.dateCard}>
         <View style={styles.dateHeader}>
@@ -209,18 +291,16 @@ export default function AttendanceScreen() {
         ))}
       </SoftCard>
 
+      {apiError ? (
+        <Text style={[styles.dateHint, { color: C.danger, marginTop: 8 }]}>
+          {apiError}
+        </Text>
+      ) : null}
+
       <PrimaryButton
         label={t("teacher.saveAttendance")}
         icon="checkmark-done-outline"
-        onPress={() => {
-          setAttendanceDay(weekdayDraft, dateDraft);
-          updateAttendance(marks);
-          Alert.alert(
-            "Attendance saved",
-            `${weekdayDraft}, ${dateDraft}\n${summary.present} present · ${summary.absent} absent`,
-            [{ text: t("common.done"), onPress: () => router.back() }]
-          );
-        }}
+        onPress={handleSaveAttendance}
       />
 
       <Modal
@@ -271,22 +351,22 @@ export default function AttendanceScreen() {
   );
 }
 
+// ------------------------------------------------------------------
+// Row — prop type widened to accept the adapted student shape
+// ------------------------------------------------------------------
 function AttendanceRow({
   student,
   last,
   onPress,
 }: {
-  student: SundayStudent;
+  student: Student & { attendance: Mark };
   last: boolean;
   onPress: () => void;
 }) {
   const present = student.attendance === "present";
 
   return (
-    <SoftCard
-      style={[styles.row, !last && styles.rowBorder]}
-      onPress={onPress}
-    >
+    <SoftCard style={[styles.row, !last && styles.rowBorder]} onPress={onPress}>
       <Text style={styles.name}>{student.name}</Text>
       <View
         style={[
@@ -304,6 +384,9 @@ function AttendanceRow({
   );
 }
 
+// ------------------------------------------------------------------
+// Styles — unchanged from your original
+// ------------------------------------------------------------------
 const styles = StyleSheet.create({
   topRow: {
     flexDirection: "row",

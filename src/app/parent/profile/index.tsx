@@ -14,11 +14,34 @@ import { useLanguage } from "../../../contexts/LanguageContext";
 import { ParentColors as C } from "../../../constants/parentTheme";
 import { TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 export default function ProfileScreen() {
   const { t } = useLanguage();
+  const { logout, user, } = useAuthContext();
   const { childrenList } = useSelectedChild();
   const unread = NOTIFICATIONS.filter((n) => n.unread).length;
+
+  const handleLogout = () => {
+    Alert.alert(
+      t("parent.logout"),
+      t("parent.logout"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("parent.logout"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await logout();
+            } finally {
+              router.replace("/(auth)/login");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <Screen>
@@ -91,16 +114,7 @@ export default function ProfileScreen() {
           title={t("parent.logout")}
           subtitle={t("common.login")}
           danger
-          onPress={() =>
-            Alert.alert(t("parent.logout"), t("parent.logout"), [
-              { text: t("common.cancel"), style: "cancel" },
-              {
-                text: t("parent.logout"),
-                style: "destructive",
-                onPress: () => router.replace("/(auth)/login"),
-              },
-            ])
-          }
+          onPress={()=> handleLogout()}
         />
       </SoftCard>
     </Screen>

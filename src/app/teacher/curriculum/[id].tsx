@@ -1,7 +1,9 @@
-import React from "react";
-import { View, Text, StyleSheet, Alert } from "react-native";
+import React, { useEffect } from "react";
+import { View, Text, StyleSheet, Alert, ActivityIndicator, TouchableOpacity } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as Linking from "expo-linking";
+import { Platform } from "react-native";
 import {
   Screen,
   SoftCard,
@@ -10,14 +12,53 @@ import {
   SectionLabel,
 } from "../../../components/teacher/ui";
 import {
-  getCurriculumLesson,
   CurriculumMaterial,
 } from "../../../data/teacherMock";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
+import { useTeacherCurriculum } from "@/hooks/useTeacherCurriculum";
+import { LessonMaterial } from "@/types/lessonTypes";
 
 export default function LessonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const lesson = getCurriculumLesson(id);
+  const { lesson, isLoading, error, refetch, fetchLesson } = useTeacherCurriculum();
+
+  useEffect(()=> {
+    if (id){
+      fetchLesson(id);
+    }
+  },[id]);
+
+  // --------------------------------------------------------------
+  // 1. Loading guard
+  // --------------------------------------------------------------
+  if (isLoading && !lesson) {
+    return (
+      <Screen>
+        <BackHeader title="Lesson" subtitle="" />
+        <View style={styles.center}>
+          <ActivityIndicator color={C.primary} />
+          <Text style={styles.muted}>Loading lesson…</Text>
+        </View>
+      </Screen>
+    );
+  }
+
+   // 2. Error / not-found guard
+  // --------------------------------------------------------------
+  if (error || !lesson) {
+    return (
+      <Screen>
+        <BackHeader title="Lesson" subtitle="" />
+        <SoftCard>
+          <Text style={styles.muted}>{error ?? "Lesson not found."}</Text>
+          <TouchableOpacity onPress={refetch}>
+            <Text style={styles.retry}>Tap to retry</Text>
+          </TouchableOpacity>
+        </SoftCard>
+      </Screen>
+    );
+  }
+
 
   return (
     <Screen>
@@ -53,11 +94,11 @@ export default function LessonDetailScreen() {
 
       <SectionLabel title="Lesson Material" />
       <SoftCard>
-        {lesson.materials.map((item, index) => (
+        {lesson?.materials?.map((item, index) => (
           <MaterialRow
             key={item.id}
             item={item}
-            last={index === lesson.materials.length - 1}
+            last={index === (lesson.materials?.length ?? 0) - 1}
           />
         ))}
       </SoftCard>
@@ -75,12 +116,19 @@ export default function LessonDetailScreen() {
       <PrimaryButton
         label="Open Lesson"
         icon="play-outline"
-        onPress={() =>
-          Alert.alert(
-            "Open Lesson",
-            `${lesson.title} materials will open here for teaching.`
-          )
-        }
+        onPress={async () => {
+          const url = lesson.attachmentUri;
+          if (!url) {
+            Alert.alert("No material", "This lesson has no attached material yet.");
+            return;
+          }
+          const supported = await Linking.canOpenURL(url);
+          if (supported) {
+            await Linking.openURL(url);
+          } else {
+            Alert.alert("Cannot open", "Your device can't open this file type.");
+          }
+        }}
       />
     </Screen>
   );
@@ -90,7 +138,7 @@ function MaterialRow({
   item,
   last,
 }: {
-  item: CurriculumMaterial;
+  item: LessonMaterial;
   last: boolean;
 }) {
   return (
@@ -169,4 +217,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: C.text,
   },
+  center: { paddingVertical: 40, alignItems: "center", gap: 8 },
+  muted: { color: C.muted, textAlign: "center", fontSize: 14, lineHeight: 20 },
+  retry: { marginTop: 8, textAlign: "center", color: C.primary, fontWeight: "700" },
 });

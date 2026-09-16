@@ -11,10 +11,10 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useAuth } from "@/hooks/useAuth";
 import { useRoleNavigation } from "@/hooks/useRoleNavigation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 // Define error response type
 interface ErrorResponse {
@@ -33,7 +33,7 @@ export default function LoginScreen(): React.ReactElement {
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
   
-  const { login, isLoading } = useAuth();
+  const { login, isLoading } = useAuthContext();
 
   const handleLogin = async (): Promise<void> => {
     // Validate input
@@ -56,7 +56,7 @@ export default function LoginScreen(): React.ReactElement {
 
     try {
       // Use the login function from the auth hook
-      await login(username, password, false);
+      const user = await login(username, password, false);
       navigateBasedOnRole(); // Navigate based on role
       getDashboardRoute();
     } catch (error: unknown) {

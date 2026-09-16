@@ -1,7 +1,13 @@
 // app/hooks/useStudentData.ts
 import { useState, useCallback } from "react";
 import { api } from "../services/api";
-import { Student, StudentCreateData, StudentDetail, StudentUpdateData, UseStudentDataReturn } from "../types/studentTypes";
+import {
+  Student,
+  StudentCreateData,
+  StudentDetail,
+  StudentUpdateData,
+  UseStudentDataReturn,
+} from "../types/studentTypes";
 
 export function useStudentData(): UseStudentDataReturn {
   const [students, setStudents] = useState<Student[]>([]);
@@ -10,239 +16,334 @@ export function useStudentData(): UseStudentDataReturn {
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
 
-  // Helper to handle API responses
-  const handleResponse = useCallback(async (response: Response) => {
+  // ------------------------------------------------------------------
+  // Internal helpers
+  // ------------------------------------------------------------------
+  const extractError = (err: unknown, fallback: string): string => {
+    const axiosErr = err as any;
+    const data = axiosErr?.response?.data;
+
+    if (data) {
+      if (typeof data === "string") return data;
+      if (data.detail) return String(data.detail);
+      if (data.error) return String(data.error);
+      if (typeof data === "object") {
+        // Flatten DRF field errors: { field: ["msg", ...] }
+        const messages = Object.values(data)
+          .flat()
+          .filter(Boolean)
+          .join(", ");
+        if (messages) return messages;
+      }
+    }
+
+    return err instanceof Error ? err.message : fallback;
+  };
+
+  const handleResponse = useCallback(async <T,>(response: Response): Promise<T> => {
     const data = await response.json();
     if (!response.ok) {
-      if (data.errors) {
-        const errorMessages = Object.values(data.errors).flat().join(", ");
-        throw new Error(errorMessages);
-      }
-      throw new Error(data.error || data.detail || "API request failed");
+      throw new Error(extractError(data, "API request failed"));
     }
-    return data;
+    return data as T;
   }, []);
 
-  // Fetch all students
+  // ------------------------------------------------------------------
+  // Read
+  // ------------------------------------------------------------------
+
+  // List students (scoped to the caller's organization by the backend).
   const fetchStudents = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.get("/admin-students/");
+      const response = await api.get<Student[]>("/students/");
       const data = response.data;
       setStudents(data);
       setTotal(data.length);
+      return data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch students");
+      setError(extractError(err, "Failed to fetch students"));
       throw err;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Fetch single student
-  const fetchStudent = useCallback(async (id: string) => {
+  // List with filters (status, classroom, search query).
+  const fetchStudentsFiltered = useCallback(
+    async (params: { status?: string; classroom?: string | number; q?: string }) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await api.get<Student[]>("/students/", { params });
+        const data = response.data;
+        setStudents(data);
+        setTotal(data.length);
+        return data;
+      } catch (err) {
+        setError(extractError(err, "Failed to fetch students"));
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  // Single student.
+  const fetchStudent = useCallback(async (id: string | number) => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.get(`/students/${id}/`);
+      const response = await api.get<StudentDetail>(`/students/${id}/`);
       const data = response.data;
       setStudent(data);
       return data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch student");
+      setError(extractError(err, "Failed to fetch student"));
       throw err;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Create new student using StudentRegisterSerializer
+  // ------------------------------------------------------------------
+  // Write
+  // ------------------------------------------------------------------
+
+  // Create a student. Matches the refined backend payload:
+  //   { name, groupId, grade, age, parentName, parentEmail }
   const createStudent = useCallback(async (studentData: StudentCreateData) => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.post("/students/", studentData);
+      const response = await api.post<Student>("/students/", studentData);
       const data = response.data;
       setStudents((prev) => [...prev, data]);
+      setTotal((prev) => prev + 1);
       return data;
     } catch (err) {
-      // Log the full error response
-      const error = err instanceof Error ? err : new Error(String(err));
-      console.error("Full error response:", (err as any)?.response);
-      console.error("Error data:", (err as any)?.response?.data);
-      setError(error.message || "Failed to create student");
-      throw error;
+      const message = extractError(err, "Failed to create student");
+      // Keep the full response available for debugging.
+      if (__DEV__) {
+        console.error("[useStudentData] createStudent error:", (err as any)?.response?.data);
+      }
+      setError(message);
+      throw new Error(message);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Update student using StudentEditSerializer
-  const updateStudent = useCallback(async (id: string, studentData: StudentUpdateData) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await api.patch(`/students/${id}/`, studentData);
-      const data = response.data;
-      setStudents((prev) => prev.map((s) => (s.id === id ? data : s)));
-      if (student?.id === id) {
-        setStudent(data);
+  // Update a student. Accepts camelCase aliases (`name`, `groupId`, ...).
+  const updateStudent = useCallback(
+    async (id: string | number, studentData: StudentUpdateData) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await api.patch<StudentDetail>(`/students/${id}/`, studentData);
+        const data = response.data;
+        setStudents((prev) =>
+          prev.map((s) => (String(s.id) === String(id) ? { ...s, ...data } : s))
+        );
+        if (student && String(student.id) === String(id)) {
+          setStudent(data);
+        }
+        return data;
+      } catch (err) {
+        setError(extractError(err, "Failed to update student"));
+        throw err;
+      } finally {
+        setIsLoading(false);
       }
-      return data;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update student");
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [student]);
+    },
+    [student]
+  );
 
-  // Delete student
-  const deleteStudent = useCallback(async (id: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      await api.delete(`/students/${id}/`);
-      setStudents((prev) => prev.filter((s) => s.id !== id));
-      if (student?.id === id) {
-        setStudent(null);
+  // Soft delete — backend flips status to "inactive" and returns a message.
+  const deleteStudent = useCallback(
+    async (id: string | number) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        await api.delete(`/students/${id}/`);
+        setStudents((prev) => prev.filter((s) => String(s.id) !== String(id)));
+        setTotal((prev) => Math.max(0, prev - 1));
+        if (student && String(student.id) === String(id)) {
+          setStudent(null);
+        }
+      } catch (err) {
+        setError(extractError(err, "Failed to delete student"));
+        throw err;
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete student");
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [, student]);
+    },
+    [student]
+  );
 
-  // Toggle student status (active/inactive)
-  const toggleStudentStatus = useCallback(async (id: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const studentToToggle = students.find((s) => s.id === id);
-      if (!studentToToggle) throw new Error("Student not found");
+  // Toggle active/inactive via PATCH — no dedicated endpoint needed.
+  const toggleStudentStatus = useCallback(
+    async (id: string | number) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const current = students.find((s) => String(s.id) === String(id));
+        if (!current) throw new Error("Student not found");
 
-      const newStatus = studentToToggle.status === "active" ? "inactive" : "active";
-      
-      const response = await api.patch(`/students/${id}/`, {
-        status: newStatus,
-      });
+        const newStatus = current.status === "active" ? "inactive" : "active";
 
-      const data = response.data;
-      setStudents((prev) => prev.map((s) => (s.id === id ? data : s)));
-      if (student?.id === id) {
-        setStudent(data);
+        const response = await api.patch<Student>(`/students/${id}/`, {
+          status: newStatus,
+        });
+        const data = response.data;
+        setStudents((prev) =>
+          prev.map((s) => (String(s.id) === String(id) ? { ...s, ...data } : s))
+        );
+        if (student && String(student.id) === String(id)) {
+          setStudent(data as unknown as StudentDetail);
+        }
+        return data;
+      } catch (err) {
+        setError(extractError(err, "Failed to toggle student status"));
+        throw err;
+      } finally {
+        setIsLoading(false);
       }
-      return data;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to toggle student status");
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [students, student, ]);
+    },
+    [students, student]
+  );
 
-  // Get current student profile
+  // ------------------------------------------------------------------
+  // Current user (parent)
+  // ------------------------------------------------------------------
   const getCurrentStudentProfile = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.get("/users/me/");
+      const response = await api.get<StudentDetail>("/users/me/");
       const data = response.data;
       setStudent(data);
       return data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to get current student profile");
+      setError(extractError(err, "Failed to get current student profile"));
       throw err;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Fetch deactivated students
+  // ------------------------------------------------------------------
+  // Deactivated / reactivation (uses ?status=inactive)
+  // ------------------------------------------------------------------
   const fetchDeactivatedStudents = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.get("/students/deactivated/");
+      const response = await api.get<Student[]>("/students/", {
+        params: { status: "inactive" },
+      });
       const data = response.data;
-      setStudents(data.students || data);
-      setTotal(data.total || data.length);
+      setStudents(data);
+      setTotal(data.length);
+      return data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch deactivated students");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Reactivate student
-  const reactivateStudent = useCallback(async (studentId: number) => {
-    try {
-      await api.post(`/students/${studentId}/reactivate/`, {});
-      await fetchDeactivatedStudents();
-      return true;
-    } catch (err) {
-      throw new Error(err instanceof Error ? err.message : "Failed to reactivate student");
-    }
-  }, [, fetchDeactivatedStudents]);
-
-  // Permanent delete student
-  const permanentDeleteStudent = useCallback(async (studentId: number) => {
-    try {
-      await api.delete(`/students/${studentId}/permanent/`);
-      await fetchDeactivatedStudents();
-      return true;
-    } catch (err) {
-      throw new Error(err instanceof Error ? err.message : "Failed to permanently delete student");
-    }
-  }, [, fetchDeactivatedStudents]);
-
-  // Enroll student in a class
-  const enrollStudent = useCallback(async (studentId: string, classData: any) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await api.post(`/students/${studentId}/enroll/`, classData);
-      return response.data;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to enroll student");
+      setError(extractError(err, "Failed to fetch deactivated students"));
       throw err;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Get student grades
-  const getStudentGrades = useCallback(async (studentId: string) => {
+  const reactivateStudent = useCallback(
+    async (studentId: number | string) => {
+      try {
+        await api.patch(`/students/${studentId}/`, { status: "active" });
+        await fetchDeactivatedStudents();
+        return true;
+      } catch (err) {
+        throw new Error(extractError(err, "Failed to reactivate student"));
+      }
+    },
+    [fetchDeactivatedStudents]
+  );
+
+  // Permanent delete requires a dedicated backend endpoint. Keep this
+  // method but expect a 404 until `DELETE /students/<id>/permanent/` is added.
+  const permanentDeleteStudent = useCallback(
+    async (studentId: number | string) => {
+      try {
+        await api.delete(`/students/${studentId}/permanent/`);
+        await fetchDeactivatedStudents();
+        return true;
+      } catch (err) {
+        throw new Error(extractError(err, "Failed to permanently delete student"));
+      }
+    },
+    [fetchDeactivatedStudents]
+  );
+
+  // ------------------------------------------------------------------
+  // Enrollment — assign a student to a group via PATCH.
+  // ------------------------------------------------------------------
+  const enrollStudent = useCallback(
+    async (studentId: string | number, classData: { groupId?: number | string; classroom?: number | string }) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const payload = {
+          groupId: classData.groupId ?? classData.classroom,
+        };
+        const response = await api.patch<Student>(`/students/${studentId}/`, payload);
+        return response.data;
+      } catch (err) {
+        setError(extractError(err, "Failed to enroll student"));
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  // ------------------------------------------------------------------
+  // Grades / attendance — separate apps, not part of the student API.
+  // Keep these stubs but point them at the right endpoints if/when
+  // those apps exist.
+  // ------------------------------------------------------------------
+  const getStudentGrades = useCallback(async (studentId: string | number) => {
     setIsLoading(true);
     setError(null);
     try {
       const response = await api.get(`/students/${studentId}/grades/`);
       return response.data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch student grades");
+      setError(extractError(err, "Failed to fetch student grades"));
       throw err;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Get student attendance
-  const getStudentAttendance = useCallback(async (studentId: string, params?: any) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await api.get(`/students/${studentId}/attendance/`);
-      return response.data;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch student attendance");
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const getStudentAttendance = useCallback(
+    async (studentId: string | number, params?: Record<string, any>) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await api.get(`/students/${studentId}/attendance/`, {
+          params,
+        });
+        return response.data;
+      } catch (err) {
+        setError(extractError(err, "Failed to fetch student attendance"));
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
 
   return {
     students,
@@ -251,6 +352,7 @@ export function useStudentData(): UseStudentDataReturn {
     error,
     total,
     fetchStudents,
+    fetchStudentsFiltered,
     fetchStudent,
     createStudent,
     updateStudent,
@@ -262,5 +364,6 @@ export function useStudentData(): UseStudentDataReturn {
     permanentDeleteStudent,
     enrollStudent,
     getStudentGrades,
+    getStudentAttendance,
   };
 }

@@ -16,11 +16,10 @@ import {
   PrimaryButton,
 } from "../../../components/teacher/ui";
 import {
-  useTeacherEvents,
-  AUDIENCE_LABELS,
-  EventAudience,
-} from "../../../contexts/TeacherEventsContext";
+  useEventsContext,
+} from "../../../contexts/EventsContext";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
+import { AUDIENCE_LABELS, EventAudience } from "@/data/teacherMock";
 
 const AUDIENCES: EventAudience[] = [
   "my_group",
@@ -29,7 +28,8 @@ const AUDIENCES: EventAudience[] = [
 ];
 
 export default function AddEventScreen() {
-  const { addEvent } = useTeacherEvents();
+  const { createEvent } = useEventsContext();
+  
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -37,7 +37,7 @@ export default function AddEventScreen() {
   const [description, setDescription] = useState("");
   const [audience, setAudience] = useState<EventAudience>("my_group");
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!title.trim() || !date.trim() || !time.trim() || !location.trim()) {
       Alert.alert(
         "Missing fields",
@@ -46,7 +46,7 @@ export default function AddEventScreen() {
       return;
     }
 
-    const created = addEvent({
+    const created = await createEvent({
       title: title.trim(),
       date: date.trim(),
       time: time.trim(),
