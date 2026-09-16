@@ -30,10 +30,21 @@ export interface Teacher {
   group: string;
 }
 
+export interface TeacherUpdateData {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  contact?: string;
+  address?: string;
+  date_of_birth?: string | null;
+}
+
 export interface UseTeacherDataReturn {
   teacher: Teacher | null;
   primaryClass: TeacherClass | null;
   isLoading: boolean;
   error: string | null;
+  isSaving: boolean,
+  updateTeacher: (payload: TeacherUpdateData) => Promise<Teacher>;
   refetch: () => Promise<Teacher | null>;
 }

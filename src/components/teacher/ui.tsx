@@ -64,13 +64,15 @@ export function PrimaryButton({
   label,
   onPress,
   icon,
+  disabled,
 }: {
   label: string;
   onPress: () => void;
+  disabled: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
 }) {
   return (
-    <TouchableOpacity style={styles.primaryBtn} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={styles.primaryBtn} onPress={onPress} activeOpacity={0.85} disabled={disabled}>
       {icon ? <Ionicons name={icon} size={18} color="#fff" /> : null}
       <Text style={styles.primaryBtnText}>{label}</Text>
     </TouchableOpacity>

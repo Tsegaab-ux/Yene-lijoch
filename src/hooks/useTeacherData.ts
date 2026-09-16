@@ -4,6 +4,7 @@ import { api } from "../services/api";
 import {
   Teacher,
   TeacherClass,
+  TeacherUpdateData,
   UseTeacherDataReturn,
 } from "../types/teacherTypes";
 
@@ -11,7 +12,7 @@ export function useTeacherData(): UseTeacherDataReturn {
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const [isSaving, setIsSaving] = useState(false);
   const extractError = (err: unknown, fallback: string): string => {
     const e = err as any;
     const data = e?.response?.data;
@@ -42,6 +43,22 @@ export function useTeacherData(): UseTeacherDataReturn {
     }
   }, []);
 
+  const updateTeacher = useCallback(async (payload: TeacherUpdateData) => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const { data } = await api.patch<Teacher>("/teachers/me/", payload);
+      setTeacher(data);
+      return data;
+    } catch (err) {
+      const message = extractError(err, "Failed to update profile");
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchTeacher();
   }, []);
@@ -53,7 +70,10 @@ export function useTeacherData(): UseTeacherDataReturn {
     teacher,
     primaryClass,
     isLoading,
+    isSaving,
+    
     error,
+    updateTeacher,
     refetch: fetchTeacher,
   };
 }

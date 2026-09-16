@@ -199,6 +199,79 @@ export const en = {
     messagesSub: "Chat with parents",
     curriculumTitle: "Curriculum",
     profileTitle: "Profile",
+    profile: {
+      info: "Teacher Information",
+      settings: "Settings",
+      language: "Language",
+      help: "Help & Support",
+    },
+    info: {
+      title: "Teacher Information",
+      fullName: "Full name",
+      email: "Email",
+      phone: "Phone",
+      group: "Group",
+      groupHint: "Your group is assigned by an administrator.",
+      save: "Save changes",
+      saving: "Saving…",
+      saved: "Saved",
+      savedBody: "Teacher information was updated.",
+      loadError: "Could not load your profile.",
+    },
+
+    settings: {
+      title: "Settings",
+      notifyParents: "Notify parents on updates",
+      notifyParentsSub: "Send alerts for attendance and lesson notes.",
+      changePassword: "Change password",
+      deleteAccount: "Delete account",
+      deleteConfirmTitle: "Deactivate account",
+      deleteConfirmBody: "You can ask an admin to reactivate it later.",
+      deactivated: "Your account has been deactivated.",
+    },
+
+    changePassword: {
+      title: "Change password",
+      current: "Current password",
+      next: "New password",
+      confirm: "Confirm new password",
+      save: "Save new password",
+      saving: "Saving…",
+      successTitle: "Password changed",
+      successBody: "You can use your new password next time you log in.",
+      missing: "Fill in every field.",
+      tooShort: "New password must be at least 8 characters.",
+      mismatch: "New password and confirmation don't match.",
+      errorTitle: "Could not change password",
+    },
+
+    language: {
+      title: "Language",
+      english: "English",
+      amharic: "አማርኛ",
+      afanOromo: "Afaan Oromoo",
+      tigrinya: "ትግርኛ",
+      selected: "Selected",
+    },
+    
+    help: {
+      title: "Help & Support",
+      contactSupport: "Contact support",
+      faq: {
+        attendance: {
+          q: "How do I take attendance?",
+          a: "Open Students, then tap Present / Absent / Mark next to each child.",
+        },
+        todayLesson: {
+          q: "Where is today's lesson?",
+          a: "Home shows Today's Lesson. Open Curriculum for the full list.",
+        },
+        messageParent: {
+          q: "How do I message a parent?",
+          a: "Open a student profile, then tap Message parent.",
+        },
+      },
+    },
   },
   admin: {
     portal: "Admin",
@@ -230,6 +303,7 @@ export const en = {
     notificationsTitle: "Notifications",
     notificationsSub: "Teacher chat + content updates",
   },
+   
 };
 
 export type TranslationKeys = DeepStringRecord;
@@ -427,6 +501,79 @@ export const am: TranslationKeys = {
     messagesSub: "ከወላጆች ጋር ይወያዩ",
     curriculumTitle: "ስርዓተ ትምህርት",
     profileTitle: "መገለጫ",
+      profile: {
+      info: "የመምህር መረጃ",
+      settings: "ቅንብሮች",
+      language: "ቋንቋ",
+      help: "እርዳታ እና ድጋፍ",
+    },
+
+    info: {
+      title: "የመምህር መረጃ",
+      fullName: "ሙሉ ስም",
+      email: "ኢሜይል",
+      phone: "ስልክ",
+      group: "ቡድን",
+      groupHint: "ቡድንዎ በአስተዳዳሪ ይመደባል።",
+      save: "ለውጦችን አስቀምጥ",
+      saving: "በማስቀመጥ ላይ…",
+      saved: "ተቀምጧል",
+      savedBody: "የመምህር መረጃ ተዘምኗል።",
+      loadError: "መገለጫዎን መጫን አልተቻለም።",
+    },
+
+    settings: {
+      title: "ቅንብሮች",
+      notifyParents: "ለወላጆች በዝመና አሳውቅ",
+      notifyParentsSub: "ለመገኘት እና ለትምህርት ማስታወሻዎች ማሳወቂያ ላክ።",
+      changePassword: "የይለፍ ቃል ቀይር",
+      deleteAccount: "መለያ ሰርዝ",
+      deleteConfirmTitle: "መለያ አቁም",
+      deleteConfirmBody: "በኋላ እንደገና እንዲነቃ አስተዳዳሪ መጠየቅ ይችላሉ።",
+      deactivated: "መለያዎ ተቋርጧል።",
+    },
+
+    changePassword: {
+      title: "የይለፍ ቃል ቀይር",
+      current: "የአሁኑ የይለፍ ቃል",
+      next: "አዲስ የይለፍ ቃል",
+      confirm: "አዲሱን የይለፍ ቃል አረጋግጥ",
+      save: "አዲስ የይለፍ ቃል አስቀምጥ",
+      saving: "በማስቀመጥ ላይ…",
+      successTitle: "የይለፍ ቃል ተቀይሯል",
+      successBody: "በሚቀጥለው ጊዜ ሲገቡ አዲሱን የይለፍ ቃል ይጠቀሙ።",
+      missing: "ሁሉንም መስኮች ይሙሉ።",
+      tooShort: "አዲስ የይለፍ ቃል ቢያንስ 8 ፊደላት መሆን አለበት።",
+      mismatch: "አዲሱ የይለፍ ቃል እና ማረጋገጫው አይዛመዱም።",
+      errorTitle: "የይለፍ ቃል መቀየር አልተቻለም",
+    },
+
+    language: {
+      title: "ቋንቋ",
+      english: "English",
+      amharic: "አማርኛ",
+      afanOromo: "Afaan Oromoo",
+      tigrinya: "ትግርኛ",
+      selected: "ተመርጧል",
+    },
+    help: {
+      title: "እርዳታ እና ድጋፍ",
+      contactSupport: "ድጋፍ ያግኙ",
+      faq: {
+        attendance: {
+          q: "መገኘትን እንዴት እመዘግባለሁ?",
+          a: "ተማሪዎችን ይክፈቱ፣ ከዚያም ከእያንዳንዱ ልጅ አጠገብ ተገኝቷል / አልተገኘም ይንኩ።",
+        },
+        todayLesson: {
+          q: "የዛሬ ትምህርት የት አለ?",
+          a: "መነሻ ገጽ የዛሬ ትምህርት ያሳያል። ሙሉ ዝርዝሩን ለማየት ስርዓተ ትምህርት ይክፈቱ።",
+        },
+        messageParent: {
+          q: "እንዴት ለወላጅ መልእክት እልካለሁ?",
+          a: "የተማሪ መገለጫ ይክፈቱ፣ ከዚያም ለወላጅ መልእክት ላክ ይንኩ።",
+        },
+      },
+    },
   },
   admin: {
     portal: "አስተዳዳሪ",
@@ -458,4 +605,5 @@ export const am: TranslationKeys = {
     notificationsTitle: "ማሳወቂያዎች",
     notificationsSub: "የመምህር ውይይት + የይዘት ዝመናዎች",
   },
+   
 };

@@ -10,11 +10,13 @@ import { useEvents } from "../hooks/useEvents";
 import { Event, EventCreateData, EventUpdateData } from "../types/eventTypes";
 
 interface EventsContextValue {
+  event: Event | null;
   events: Event[];
   isLoading: boolean;
   error: string | null;
 
   // Actions — gated by the backend; the UI decides whether to show them.
+  fetchEvent: (id: number | string)=> Promise<Event | null>;
   refetch: () => Promise<Event[]>;
   createEvent: (data: EventCreateData) => Promise<Event>;
   updateEvent: (id: number | string, data: EventUpdateData) => Promise<Event | null>;
@@ -27,9 +29,11 @@ const EventsContext = createContext<EventsContextValue | undefined>(undefined);
 
 export function EventsProvider({ children }: { children: React.ReactNode }) {
   const {
+    event,
     events,
     isLoading,
     error,
+    fetchEvent,
     fetchEvents,
     createEvent,
     updateEvent,
@@ -46,11 +50,13 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
   // Expose the same `events` array already tracked by the hook.
   const value = useMemo<EventsContextValue>(
     () => ({
+      event,
       events,
       isLoading,
       error,
 
       refetch: fetchEvents,
+      fetchEvent,
       createEvent,
       updateEvent,
       deleteEvent,
@@ -58,9 +64,11 @@ export function EventsProvider({ children }: { children: React.ReactNode }) {
       setEventStatus,
     }),
     [
+      event,
       events,
       isLoading,
       error,
+      fetchEvent,
       fetchEvents,
       createEvent,
       updateEvent,
