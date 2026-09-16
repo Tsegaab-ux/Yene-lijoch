@@ -282,9 +282,4 @@ export const MESSAGES: TeacherMessage[] = [
   },
 ];
 
-export function getAttendanceSummary(students: SundayStudent[]) {
-  const present = students.filter((s) => s.attendance === "present").length;
-  const absent = students.filter((s) => s.attendance === "absent").length;
-  const unmarked = students.filter((s) => s.attendance === "unmarked").length;
-  return { total: students.length, present, absent, unmarked };
-}
+

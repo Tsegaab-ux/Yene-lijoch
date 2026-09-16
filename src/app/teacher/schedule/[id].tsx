@@ -10,7 +10,7 @@ import {
 import {
   useTeacherEvents,
   AUDIENCE_LABELS,
-} from "../../../contexts/TeacherEventsContext";
+} from "../../../contexts/EventsContext";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
 
 export default function EventDetails() {

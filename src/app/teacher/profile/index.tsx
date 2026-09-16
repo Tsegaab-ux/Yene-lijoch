@@ -12,9 +12,32 @@ import { TeacherColors as C } from "../../../constants/teacherTheme";
 import { useLanguage } from "../../../contexts/LanguageContext";
 import { Ionicons } from "@expo/vector-icons";
 import { TouchableOpacity, View } from "react-native";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 export default function TeacherProfileScreen() {
   const { t } = useLanguage();
+  const { logout, user, isLoading } = useAuthContext();
+
+  const handleLogout = () => {
+    Alert.alert(
+      t("parent.logout"),
+      t("parent.logout"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("parent.logout"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await logout();
+            } finally {
+              router.replace("/(auth)/login");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <Screen>
@@ -62,16 +85,7 @@ export default function TeacherProfileScreen() {
           icon="log-out-outline"
           title={t("parent.logout")}
           danger
-          onPress={() =>
-            Alert.alert(t("parent.logout"), t("parent.logout"), [
-              { text: t("common.cancel"), style: "cancel" },
-              {
-                text: t("parent.logout"),
-                style: "destructive",
-                onPress: () => router.replace("/(auth)/login"),
-              },
-            ])
-          }
+          onPress={handleLogout}
         />
       </SoftCard>
     </Screen>

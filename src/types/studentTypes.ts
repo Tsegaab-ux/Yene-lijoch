@@ -1,76 +1,56 @@
-import { Organization } from "./organizationTypes";
+export type StudentStatus = "active" | "inactive" | "graduated";
 
-// Student type based on your Django serializers
 export interface Student {
-  id: string;
-  // Profile fields
-  username: string;
-  full_name: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  profile_image: string | null;
-  sex: "male" | "female" | "other";
-  address: string;
-  contact: string;
-  date_of_birth: string;
-  // Student fields
-  organization: string;
-  guardian_name: string;
-  guardian_contact: string;
-  status: "active" | "inactive" | "graduated" | "transferred";
-  enrollment_date: string;
+  id: number | string;
+  name: string;
+  groupId: number | string | null;
+  group_name?: string;
+  grade: string;
+  age?: number | null;
+  parentName: string;
+  parentEmail: string;
+  status: StudentStatus;
+  created_at?: string;
+  updated_at?: string;
 }
 
-export interface StudentListProps {
-  students: Student[];
-  viewMode: "list" | "grid";
-  searchQuery: string;
-  filters: {
-    status: string;
-    organization: string;
-    sex: string;
-  };
-  onToggleStatus: (id: string) => Promise<void>;
+export interface StudentDetail extends Student {
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
+  username?: string;
+  email?: string;
+  profile_image?: string | null;
+  sex?: string;
+  address?: string;
+  contact?: string;
+  date_of_birth?: string;
+  guardian_contact?: string;
+  enrollment_date?: string | null;
 }
 
 export interface StudentCreateData {
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  password: string;
-  contact: string;
-  date_of_birth: string;
-  address: string;
-  profile_image: string | null;
-  student_details: {
-    organization: string;
-    guardian_name: string;
-    guardian_contact: string;
-    status?: string;
-    enrollment_date: string;
-  };
+  name: string;
+  groupId?: number | string | null;
+  grade?: string;
+  age?: number | null;
+  parentName?: string;
+  parentEmail?: string;
+  status?: StudentStatus;
+  enrollment_date?: string | null;
 }
 
-export interface StudentUpdateData {
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  contact: string;
-  date_of_birth: string;
-  address: string;
-  sex: string;
-  profile_image: string | null;
-  student_details: {
-    organization: string;
-    guardian_name: string;
-    guardian_contact: string;
-    status?: string;
-    enrollment_date: string;
-  };
-}
+export type StudentUpdateData = Partial<StudentCreateData> & {
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  contact?: string;
+  address?: string;
+  date_of_birth?: string | null;
+  sex?: string;
+  guardian_contact?: string;
+};
 
 export interface UseStudentDataReturn {
   students: Student[];
@@ -78,63 +58,31 @@ export interface UseStudentDataReturn {
   isLoading: boolean;
   error: string | null;
   total: number;
-  fetchStudents: () => Promise<void>;
-  fetchStudent: (id: string) => Promise<Student>;
-  createStudent: (studentData: StudentCreateData) => Promise<Student>;
-  updateStudent: (id: string, studentData: StudentUpdateData) => Promise<Student>;
-  deleteStudent: (id: string) => Promise<void>;
-  toggleStudentStatus: (id: string) => Promise<Student>;
-  getCurrentStudentProfile: () => Promise<Student>;
-  fetchDeactivatedStudents: () => Promise<void>;
-  reactivateStudent: (studentId: number) => Promise<boolean>;
-  permanentDeleteStudent: (studentId: number) => Promise<boolean>;
-  enrollStudent: (studentId: string, classData: any) => Promise<any>;
-  getStudentGrades: (studentId: string) => Promise<any[]>;
-}
 
-export interface StudentDetail {
-  id: string;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  profile_image: string | null;
-  sex: "male" | "female" | "other";
-  address: string;
-  contact: string;
-  date_of_birth: string;
-  organization: Organization;
-  guardian_name: string;
-  guardian_contact: string;
-  status: "active" | "inactive" | "graduated" | "transferred";
-  enrollment_date: string;
-  created_at?: string;
-  updated_at?: string;
-}
+  fetchStudents: () => Promise<Student[]>;
+  fetchStudentsFiltered: (params: {
+    status?: string;
+    classroom?: string | number;
+    q?: string;
+  }) => Promise<Student[]>;
+  fetchStudent: (id: string | number) => Promise<StudentDetail>;
 
-// Sample data for demonstration - replace with actual API data
-export interface StudentActivity {
-  id: string;
-  type: "enrollment" | "graduation" | "class" | "achievement" | "attendance";
-  title: string;
-  description: string;
-  date: string;
-  icon: any;
-}
+  createStudent: (data: StudentCreateData) => Promise<Student>;
+  updateStudent: (id: string | number, data: StudentUpdateData) => Promise<StudentDetail>;
+  deleteStudent: (id: string | number) => Promise<void>;
+  toggleStudentStatus: (id: string | number) => Promise<Student>;
 
-export interface StudentClass {
-  id: string;
-  name: string;
-  teacher: string;
-  schedule: string;
-  progress: number;
-  grade: string;
-}
+  getCurrentStudentProfile: () => Promise<StudentDetail>;
 
-export interface StudentAchievement {
-  id: string;
-  title: string;
-  description: string;
-  date: string;
-  type: "academic" | "sports" | "arts" | "community";
+  fetchDeactivatedStudents: () => Promise<Student[]>;
+  reactivateStudent: (id: number | string) => Promise<boolean>;
+  permanentDeleteStudent: (id: number | string) => Promise<boolean>;
+
+  enrollStudent: (
+    id: string | number,
+    data: { groupId?: number | string; classroom?: number | string }
+  ) => Promise<Student>;
+
+  getStudentGrades: (id: string | number) => Promise<any>;
+  getStudentAttendance: (id: string | number, params?: Record<string, any>) => Promise<any>;
 }

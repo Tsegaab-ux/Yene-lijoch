@@ -33,10 +33,8 @@ export const useRoleNavigation = () => {
         return "/teacher";
       case 'parent':
         return "/parent";
-      case 'student':
-        return "/student";
-      case 'pastor':
-        return "/pastor";
+      case 'admin':
+        return "/admin";
       default:
         return "/";
     }

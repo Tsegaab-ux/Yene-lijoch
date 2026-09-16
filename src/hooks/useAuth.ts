@@ -307,3 +307,4 @@ export function useAuth(): AuthContext {
     hasRole,
   };
 }
+
