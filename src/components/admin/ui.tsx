@@ -106,9 +106,11 @@ export function PrimaryButton({
   label,
   onPress,
   icon,
+  disabled
 }: {
   label: string;
   onPress: () => void;
+  disabled: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
 }) {
   return (

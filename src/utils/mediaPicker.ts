@@ -7,6 +7,7 @@ export type PickedFile = {
   name: string;
   mimeType: string;
   kind: "image" | "video" | "audio" | "file";
+  file: File;
 };
 
 function classifyMime(mime: string, name: string): PickedFile["kind"] {

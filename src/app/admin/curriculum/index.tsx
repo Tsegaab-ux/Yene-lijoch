@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Platform,
+  Alert,
 } from "react-native";
 import {
   Screen,
@@ -19,45 +21,100 @@ import {
 import { CalendarEmbed } from "../../../components/admin/CalendarEmbed";
 import { GalleryUploadPanel } from "../../../components/admin/GalleryUploadPanel";
 import { AdminColors as C } from "../../../constants/adminTheme";
-import { useSharedContent } from "../../../contexts/SharedContentContext";
-import { SharedCurriculum } from "../../../data/sharedContent";
-import {
-  confirmAction,
-  notify,
-  PickedFile,
-} from "../../../utils/mediaPicker";
 import { useLanguage } from "../../../contexts/LanguageContext";
+import { useClassrooms } from "@/hooks/useClassrooms";
+import { useLessons } from "@/hooks/useLessons";
+import { LessonStatus } from "@/types/lessonTypes";
+import { PickedFile } from "@/utils/mediaPicker";
+import { notify } from "@/utils/notify";
 
-const STATUSES: SharedCurriculum["status"][] = [
-  "this_week",
-  "upcoming",
-  "completed",
-];
+const STATUSES: LessonStatus[] = ["this_week", "upcoming", "completed"];
+
+// Cross-platform confirm dialog.
+function confirm(title: string, message: string): Promise<boolean> {
+  if (Platform.OS === "web") {
+    return Promise.resolve(window.confirm(`${title}\n\n${message}`));
+  }
+  return new Promise((resolve) => {
+    Alert.alert(title, message, [
+      { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+      { text: "Delete", style: "destructive", onPress: () => resolve(true) },
+    ]);
+  });
+}
+
+/**
+ * Convert a human-readable date ("September 21, 2026") to an ISO date
+ * string ("2026-09-21"). Returns null if the input can't be parsed.
+ */
+function parseDateLabel(label: string): string | null {
+  if (!label) return null;
+  const d = new Date(label);
+  if (isNaN(d.getTime())) return null;
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export default function AdminCurriculumScreen() {
-  const {
-    curriculum,
-    addCurriculum,
-    setCurriculumDate,
-    removeCurriculum,
-    toggleCurriculumPublished,
-  } = useSharedContent();
   const { t } = useLanguage();
+  const { classrooms, fetchClassrooms, fetchClassroomsFiltered } = useClassrooms();
+  const {
+    lessons,
+    isLoading,
+    createLesson,
+    deleteLesson,
+    makeThisWeek,
+    togglePublish,
+    setDate: setLessonDate,
+  } = useLessons();
+
+  // ------------------------------------------------------------------
+  // Class selection (required for new lessons)
+  // ------------------------------------------------------------------
+  const [classroomId, setClassroomId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (classroomId === null && classrooms.length > 0) {
+      setClassroomId(classrooms[0].id as number);
+    }
+  }, [classrooms, classroomId]);
+
+  // ------------------------------------------------------------------
+  // Form state
+  // ------------------------------------------------------------------
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Creation");
   const [week, setWeek] = useState("1");
+  const [year, setYear] = useState(String(new Date().getFullYear()));
   const [date, setDate] = useState("September 21, 2026");
-  const [year, setYear] = useState("2026");
   const [scripture, setScripture] = useState("");
   const [memoryVerse, setMemoryVerse] = useState("");
   const [description, setDescription] = useState("");
-  const [status, setStatus] =
-    useState<SharedCurriculum["status"]>("upcoming");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDate, setEditDate] = useState("September 21, 2026");
+  const [status, setStatus] = useState<LessonStatus>("upcoming");
   const [mediaFile, setMediaFile] = useState<PickedFile | null>(null);
   const [coverFile, setCoverFile] = useState<PickedFile | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ------------------------------------------------------------------
+  // Editing state
+  // ------------------------------------------------------------------
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDate, setEditDate] = useState("September 21, 2026");
+  const [isSavingDate, setIsSavingDate] = useState(false);
+
+  // Lessons scoped to the selected classroom (if any)
+  const visibleLessons = useMemo(() => {
+    if (classroomId === null) return lessons;
+    return lessons.filter(
+      (l) =>
+        l.classroom_id === null ||
+        l.classroom_id === undefined ||
+        Number(l.classroom_id) === classroomId
+    );
+  }, [lessons, classroomId]);
 
   const resetForm = () => {
     setTitle("");
@@ -68,39 +125,158 @@ export default function AdminCurriculumScreen() {
     setCoverFile(null);
   };
 
-  const handleAdd = () => {
-    if (!title.trim()) {
-      notify("Missing title", "Please enter a curriculum title.");
+  // ------------------------------------------------------------------
+  // Create
+  // ------------------------------------------------------------------
+  const handleAdd = async () => {
+    // Coerce every form value to a string before touching it.
+    const safeTitle = String(title ?? "").trim();
+    const safeDate = String(date ?? "").trim();
+    const safeCategory = String(category ?? "").trim();
+    const safeScripture = String(scripture ?? "").trim();
+    const safeMemoryVerse = String(memoryVerse ?? "").trim();
+    const safeDescription = String(description ?? "").trim();
+    const safeWeek = String(week ?? "").trim();
+    const safeYear = String(year ?? "").trim();
+
+    if (!safeTitle) {
+      notify(t("common.error"), t("admin.curriculumTitleRequired"));
       return;
     }
-    if (!date.trim()) {
-      notify("Missing date", "Pick a date on the calendar.");
+    if (!safeDate) {
+      notify(t("common.error"), t("admin.curriculumDateRequired"));
+      return;
+    }
+    if (classroomId === null) {
+      notify(t("common.error"), t("admin.curriculumClassRequired"));
       return;
     }
 
-    addCurriculum({
-      title: title.trim(),
-      category: category.trim() || "General",
-      week: Number(week) || 1,
-      date: date.trim(),
-      year: year.trim() || String(new Date().getFullYear()),
-      scripture: scripture.trim() || "Scripture TBA",
-      memoryVerse: memoryVerse.trim() || "Memory verse TBA",
-      description:
-        description.trim() || "Sunday school curriculum lesson for parents.",
-      status,
-      published: true,
-      coverUri: coverFile?.uri || (mediaFile?.kind === "image" ? mediaFile.uri : undefined),
-      attachmentUri: mediaFile?.uri,
-      attachmentName: mediaFile?.name,
-      attachmentType: mediaFile?.kind,
-    });
+    const lessonDate = parseDateLabel(safeDate);
+    if (!lessonDate) {
+      notify(t("common.error"), t("admin.curriculumInvalidDate"));
+      return;
+    }
 
-    resetForm();
-    setShowForm(false);
-    notify("Saved", "Curriculum is live for parents.");
+    setIsSubmitting(true);
+    try {
+      const payload: Record<string, unknown> = {
+        classroom: classroomId,
+        title: safeTitle,
+        category: safeCategory || "General",
+        week: Number(safeWeek) || 1,
+        lesson_date: lessonDate,
+        date_label: safeDate,
+        year: Number(safeYear) || new Date().getFullYear(),
+        scripture: safeScripture || "Scripture TBA",
+        memory_verse: safeMemoryVerse || "Memory verse TBA",
+        description:
+          safeDescription ||
+          "Sunday school curriculum lesson for parents.",
+        status,
+        published: true,
+      };
+
+      if (coverFile?.file) payload.cover = coverFile.file;
+      if (mediaFile?.file) payload.attachment = mediaFile.file;
+      if (mediaFile?.name) payload.attachment_name = mediaFile.name;
+      if (mediaFile?.kind) payload.attachment_type = mediaFile.kind;
+
+      await createLesson(payload as any);
+
+      resetForm();
+      setShowForm(false);
+      notify(t("common.success"), t("admin.curriculumSaved"));
+    } catch (err: unknown) {
+      const error = err as {
+        response?: { data?: unknown; status?: number };
+        message?: unknown;
+      };
+      console.error("[curriculum] create failed:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+      const message =
+        error.response?.data ?? error.message ?? t("common.error");
+      notify(t("common.error"), String(message));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
+  // ------------------------------------------------------------------
+  // Edit date
+  // ------------------------------------------------------------------
+  const handleSaveDate = async (itemId: number | undefined) => {
+    if (itemId === undefined || itemId === null) {
+      notify(t("common.error"), t("admin.curriculumMissingId"));
+      return;
+    }
+    if (!editDate.trim()) {
+      notify(t("common.error"), t("admin.curriculumPickDate"));
+      return;
+    }
+
+    const iso = parseDateLabel(editDate);
+    if (!iso) {
+      notify(t("common.error"), t("admin.curriculumInvalidDate"));
+      return;
+    }
+
+    setIsSavingDate(true);
+    try {
+      await setLessonDate(itemId, iso, editDate);
+      setEditingId(null);
+      notify(t("common.success"), t("admin.curriculumDateSaved"));
+    } catch (err: unknown) {
+      notify(t("common.error"), String(err));
+    } finally {
+      setIsSavingDate(false);
+    }
+  };
+
+  // ------------------------------------------------------------------
+  // Row actions
+  // ------------------------------------------------------------------
+  const handleMakeThisWeek = async (itemId: number | undefined, title: string) => {
+    if (itemId === undefined) return;
+    try {
+      await makeThisWeek(itemId);
+      notify(t("common.success"), t("admin.curriculumMadeThisWeek", { title }));
+    } catch (err: unknown) {
+      notify(t("common.error"), String(err));
+    }
+  };
+
+  const handleTogglePublish = async (itemId: number | undefined) => {
+    if (itemId === undefined) return;
+    try {
+      await togglePublish(itemId);
+    } catch (err: unknown) {
+      notify(t("common.error"), String(err));
+    }
+  };
+
+  const handleRemove = async (itemId: number | undefined, title: string) => {
+    if (itemId === undefined) return;
+    const ok = await confirm(t("admin.curriculumDeleteConfirm"), title);
+    if (!ok) return;
+    try {
+      await deleteLesson(itemId);
+      notify(t("common.success"), title);
+    } catch (err: unknown) {
+      notify(t("common.error"), String(err));
+    }
+  };
+
+  useEffect(()=> {
+    fetchClassrooms();
+  },[]);
+
+  // ------------------------------------------------------------------
+  // Render
+  // ------------------------------------------------------------------
   return (
     <Screen>
       <TopBar
@@ -110,23 +286,56 @@ export default function AdminCurriculumScreen() {
         onAction={() => setShowForm((v) => !v)}
       />
 
+      {/* ---------- Add form ---------- */}
       {showForm ? (
         <SoftCard style={{ marginBottom: 14 }}>
-          <Text style={styles.formTitle}>Add curriculum lesson</Text>
-          <Field label="Title" value={title} onChangeText={setTitle} />
+          <Text style={styles.formTitle}>
+            {t("admin.curriculumAddTitle")}
+          </Text>
+
+          {/* Class picker (only when > 1 class) */}
+          {classrooms.length > 0 ? (
+            <>
+              <Text style={styles.label}>{t("admin.curriculumClass")}</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ marginBottom: 8 }}
+              >
+                {classrooms.map((c) => (
+                  <Pill
+                    key={c.id}
+                    label={c.name}
+                    active={classroomId === c.id}
+                    onPress={() => setClassroomId(c.id as number)}
+                  />
+                ))}
+              </ScrollView>
+            </>
+          ) : null}
+
           <Field
-            label="Category"
+            label={t("admin.curriculumFieldTitle")}
+            value={title}
+            onChangeText={setTitle}
+          />
+          <Field
+            label={t("admin.curriculumFieldCategory")}
             value={category}
             onChangeText={setCategory}
             placeholder="Creation, Gospels..."
           />
-          <Field label="Week number" value={week} onChangeText={setWeek} />
+          <Field
+            label={t("admin.curriculumFieldWeek")}
+            value={week}
+            onChangeText={setWeek}
+          />
 
-          <Text style={styles.label}>Given date (calendar)</Text>
+          <Text style={styles.label}>{t("admin.curriculumDateLabel")}</Text>
           <CalendarEmbed
             value={date}
             onChange={(label, d) => {
-              setDate(label);
+              setDate(label);                          // ← fixed
               setYear(String(d.getFullYear()));
             }}
           />
@@ -136,144 +345,179 @@ export default function AdminCurriculumScreen() {
             coverFile={coverFile}
             onMedia={setMediaFile}
             onCover={setCoverFile}
-            mediaLabel="curriculum picture, video, or music"
+            mediaLabel={t("admin.curriculumMediaLabel")}
           />
 
           <Field
-            label="Scripture"
+            label={t("admin.curriculumFieldScripture")}
             value={scripture}
             onChangeText={setScripture}
           />
           <Field
-            label="Memory verse"
+            label={t("admin.curriculumFieldMemory")}
             value={memoryVerse}
             onChangeText={setMemoryVerse}
             multiline
           />
           <Field
-            label="Description"
+            label={t("admin.curriculumFieldDescription")}
             value={description}
             onChangeText={setDescription}
             multiline
           />
-          <Text style={styles.label}>Status</Text>
+
+          <Text style={styles.label}>{t("admin.curriculumStatus")}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {STATUSES.map((s) => (
               <Pill
                 key={s}
-                label={s.replace("_", " ")}
+                label={t(`admin.curriculumStatus_${s}`)}
                 active={status === s}
                 onPress={() => setStatus(s)}
               />
             ))}
           </ScrollView>
+
           <PrimaryButton
-            label="Publish Curriculum"
+            label={
+              isSubmitting
+                ? t("admin.curriculumPublishing")
+                : t("admin.curriculumPublish")
+            }
             icon="book-outline"
             onPress={handleAdd}
+            disabled={isSubmitting}
           />
         </SoftCard>
       ) : null}
 
-      <SectionLabel title={`${curriculum.length} lessons · year plan`} />
-      {curriculum.map((item) => (
-        <SoftCard key={item.id} style={styles.card}>
-          <View style={styles.topRow}>
-            {item.coverUri ? (
-              <Image source={{ uri: item.coverUri }} style={styles.thumb} />
-            ) : null}
-            <View style={{ flex: 1 }}>
-              <Text style={styles.badge}>
-                Week {item.week} · {item.category} · {item.year}
-              </Text>
-              <Text style={styles.title}>{item.title}</Text>
-              <Text style={styles.meta}>
-                Date: {item.date} · {item.status.replace("_", " ")}
-              </Text>
-              <Text style={styles.meta}>
-                {item.published ? "Shown to parents" : "Hidden"}
-                {item.attachmentName ? ` · ${item.attachmentName}` : ""}
-              </Text>
-            </View>
-          </View>
+      {/* ---------- Count ---------- */}
+      <SectionLabel
+        title={t("admin.curriculumCount", { count: visibleLessons.length })}
+      />
 
-          {editingId === item.id ? (
-            <View style={{ marginTop: 12 }}>
-              <Text style={styles.label}>Update date</Text>
-              <CalendarEmbed
-                value={editDate}
-                onChange={(label) => setEditDate(label)}
-              />
-              <PrimaryButton
-                label={t("teacher.saveDate")}
-                onPress={() => {
-                  if (!editDate.trim()) {
-                    notify("Pick a date", "Select a day on the calendar.");
-                    return;
+      {/* ---------- States ---------- */}
+      {isLoading && visibleLessons.length === 0 ? (
+        <SoftCard style={styles.card}>
+          <Text style={styles.meta}>{t("common.loading")}</Text>
+        </SoftCard>
+      ) : null}
+
+      {!isLoading && visibleLessons.length === 0 ? (
+        <SoftCard style={styles.card}>
+          <Text style={styles.meta}>{t("admin.curriculumEmpty")}</Text>
+        </SoftCard>
+      ) : null}
+
+      {/* ---------- Lesson rows ---------- */}
+      {visibleLessons.map((item) => {
+        const coverUri = item.coverUri;
+        const isEditing = editingId === item.id;
+        const lessonId = typeof item.id === "number" ? item.id : undefined;
+
+        return (
+          <SoftCard key={String(item.id)} style={styles.card}>
+            <View style={styles.topRow}>
+              {coverUri ? (
+                <Image source={{ uri: coverUri }} style={styles.thumb} />
+              ) : null}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.badge}>
+                  {t("admin.curriculumWeekBadge", {
+                    week: item.week,
+                    category: item.category ?? "",
+                    year: item.year,
+                  })}
+                </Text>
+                <Text style={styles.title}>{item.title}</Text>
+                <Text style={styles.meta}>
+                  {t("admin.curriculumDateLine", {
+                    date: item.date,
+                    status: t(`admin.curriculumStatus_${item.status}`),
+                  })}
+                </Text>
+                <Text style={styles.meta}>
+                  {item.published
+                    ? t("admin.curriculumShown")
+                    : t("admin.curriculumHidden")}
+                  {item.attachment_name ? ` · ${item.attachment_name}` : ""}
+                </Text>
+              </View>
+            </View>
+
+            {/* ---------- Inline date editor ---------- */}
+            {isEditing ? (
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.label}>
+                  {t("admin.curriculumEditDate")}
+                </Text>
+                <CalendarEmbed
+                  value={editDate}
+                  onChange={(label) => setEditDate(label)}
+                />
+                <PrimaryButton
+                  label={
+                    isSavingDate
+                      ? t("admin.curriculumSaving")
+                      : t("teacher.saveDate")
                   }
-                  setCurriculumDate(item.id, editDate.trim());
-                  setEditingId(null);
-                  notify("Updated", "Curriculum date saved.");
-                }}
-              />
+                  onPress={() => handleSaveDate(lessonId)}
+                  disabled={isSavingDate || !editDate.trim()}
+                />
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setEditingId(null)}
+                >
+                  <Text style={styles.cancelText}>{t("common.cancel")}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {/* ---------- Row actions ---------- */}
+            <View style={styles.actions}>
               <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setEditingId(null)}
+                style={styles.actionChip}
+                onPress={() => {
+                  if (lessonId === undefined) return;
+                  setEditingId(lessonId);
+                  setEditDate(item.date);
+                }}
               >
-                <Text style={styles.cancelText}>{t("common.cancel")}</Text>
+                <Text style={styles.actionText}>
+                  {t("teacher.setDate")}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionChip}
+                onPress={() => handleMakeThisWeek(lessonId, item.title)}
+              >
+                <Text style={styles.actionText}>
+                  {t("admin.curriculumMakeThisWeek")}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionChip}
+                onPress={() => handleTogglePublish(lessonId)}
+              >
+                <Text style={styles.actionText}>
+                  {item.published ? t("common.hide") : t("common.publish")}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionChip}
+                onPress={() => handleRemove(lessonId, item.title)}
+              >
+                <Text style={[styles.actionText, { color: C.danger }]}>
+                  {t("common.delete")}
+                </Text>
               </TouchableOpacity>
             </View>
-          ) : null}
-
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={styles.actionChip}
-              onPress={() => {
-                setEditingId(item.id);
-                setEditDate(item.date);
-              }}
-            >
-              <Text style={styles.actionText}>{t("teacher.setDate")}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionChip}
-              onPress={() => {
-                setCurriculumDate(item.id, item.date, "this_week");
-                notify("This week", `${item.title} is now this week's lesson.`);
-              }}
-            >
-              <Text style={styles.actionText}>Make this week</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionChip}
-              onPress={() => {
-                toggleCurriculumPublished(item.id);
-                notify(
-                  item.published ? "Hidden" : "Published",
-                  item.title
-                );
-              }}
-            >
-              <Text style={styles.actionText}>
-                {item.published ? t("common.hide") : t("common.publish")}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionChip}
-              onPress={() =>
-                confirmAction("Delete lesson?", item.title, () => {
-                  removeCurriculum(item.id);
-                  notify("Deleted", item.title);
-                })
-              }
-            >
-              <Text style={[styles.actionText, { color: C.danger }]}>
-                {t("common.delete")}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </SoftCard>
-      ))}
+          </SoftCard>
+        );
+      })}
     </Screen>
   );
 }

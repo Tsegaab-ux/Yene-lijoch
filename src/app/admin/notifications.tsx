@@ -1,18 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import {
   Screen,
   SoftCard,
   TopBar,
   Pill,
 } from "../../components/admin/ui";
-import { AdminNotice } from "../../data/sharedContent";
 import { AdminColors as C } from "../../constants/adminTheme";
-import { useSharedContent } from "../../contexts/SharedContentContext";
+import { useNotifications } from "../../contexts/NotificationContext";
 import { useChat } from "../../contexts/ChatContext";
 import { useLanguage } from "../../contexts/LanguageContext";
-import { router } from "expo-router";
 
 type FeedItem = {
   id: string;
@@ -26,10 +25,16 @@ type FeedItem = {
 const FILTERS = ["All", "Chat", "Videos", "Curriculum", "Groups", "Events"] as const;
 
 export default function AdminNotificationsScreen() {
-  const { adminNotices, markAdminNoticesRead } = useSharedContent();
-  const { teacherMessages, conversations, getConversation } = useChat();
   const { t } = useLanguage();
+  const { notifications, markAllRead } = useNotifications();
+  const { teacherMessages, getConversation } = useChat();
+
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
+
+  // Mark notifications as read once when the screen mounts.
+  useEffect(() => {
+    markAllRead();
+  }, []);
 
   const filterLabel = (item: (typeof FILTERS)[number]) => {
     if (item === "All") return t("parent.all");
@@ -40,36 +45,55 @@ export default function AdminNotificationsScreen() {
     return item;
   };
 
-  useEffect(() => {
-    markAdminNoticesRead();
-  }, [markAdminNoticesRead]);
+  // ------------------------------------------------------------------
+  // Chat items — derived from teacherMessages. Guard against undefined
+  // conversation lookups, which happen when a message belongs to a
+  // conversation not yet in the local cache.
+  // ------------------------------------------------------------------
+  const chatItems: FeedItem[] = useMemo(
+    () =>
+      teacherMessages.map((m) => {
+        const conv = getConversation(m.conversationId);
+        const teacherName = conv?.teacherName ?? t("parent.teacherFallback");
+        const childName = conv?.childName ?? "";
+        return {
+          id: `chat-${m.id}`,
+          title: `${t("parent.roleTeacher")} · ${teacherName}`,
+          body: childName ? `${childName}: ${m.text}` : m.text,
+          time: m.timeLabel ?? "",
+          category: "chat",
+          unread: true,
+        };
+      }),
+    [teacherMessages, getConversation, t]
+  );
 
-  const chatItems: FeedItem[] = teacherMessages.map((m) => {
-    const conv = getConversation(m.conversationId);
-    return {
-      id: `chat-${m.id}`,
-      title: `Teacher · ${conv.teacherName}`,
-      body: `${conv.childName}: ${m.text}`,
-      time: m.timeLabel,
-      category: "chat",
-      unread: true,
-    };
-  });
+  // ------------------------------------------------------------------
+  // Backend notifications — already shaped for a feed.
+  // ------------------------------------------------------------------
+  const contentItems: FeedItem[] = useMemo(
+    () =>
+      notifications.map((n) => ({
+        id: `notif-${n.id}`,
+        title: n.title ?? "",
+        body: n.body ?? "",
+        time: n.created_at
+          ? new Date(n.created_at).toLocaleString()
+          : "",
+        category: n.category ?? "other",
+        unread: !n.read,
+      })),
+    [notifications]
+  );
 
-  const contentItems: FeedItem[] = adminNotices.map((n: AdminNotice) => ({
-    id: n.id,
-    title: n.title,
-    body: n.body,
-    time: n.time,
-    category: n.category,
-    unread: n.unread,
-  }));
-
+  // ------------------------------------------------------------------
+  // Filter
+  // ------------------------------------------------------------------
   const feed = useMemo(() => {
     const all = [...chatItems, ...contentItems];
     if (filter === "All") return all;
     return all.filter(
-      (item) => item.category === filter.toLowerCase()
+      (item) => item.category.toLowerCase() === filter.toLowerCase()
     );
   }, [chatItems, contentItems, filter]);
 
@@ -98,35 +122,43 @@ export default function AdminNotificationsScreen() {
 
       <SoftCard style={{ marginBottom: 12 }}>
         <Text style={styles.summary}>
-          {conversations.length} parent–teacher chats ·{" "}
-          {teacherMessages.length} teacher messages tracked
+          {t("admin.notificationsSummary", {
+            chats: chatItems.length,
+            messages: teacherMessages.length,
+          })}
         </Text>
       </SoftCard>
 
-      {feed.map((item) => (
-        <SoftCard key={item.id} style={styles.card}>
-          <View style={styles.row}>
-            <View style={styles.icon}>
-              <Ionicons
-                name={
-                  item.category === "chat"
-                    ? "chatbubble-outline"
-                    : "notifications-outline"
-                }
-                size={18}
-                color={C.primary}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>{item.title}</Text>
-              <Text style={styles.body}>{item.body}</Text>
-              <Text style={styles.time}>
-                {item.time} · {item.category}
-              </Text>
-            </View>
-          </View>
+      {feed.length === 0 ? (
+        <SoftCard style={styles.card}>
+          <Text style={styles.body}>{t("admin.noNotifications")}</Text>
         </SoftCard>
-      ))}
+      ) : (
+        feed.map((item) => (
+          <SoftCard key={item.id} style={styles.card}>
+            <View style={styles.row}>
+              <View style={styles.icon}>
+                <Ionicons
+                  name={
+                    item.category === "chat"
+                      ? "chatbubble-outline"
+                      : "notifications-outline"
+                  }
+                  size={18}
+                  color={C.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title}>{item.title}</Text>
+                <Text style={styles.body}>{item.body}</Text>
+                <Text style={styles.time}>
+                  {item.time} · {item.category}
+                </Text>
+              </View>
+            </View>
+          </SoftCard>
+        ))
+      )}
     </Screen>
   );
 }

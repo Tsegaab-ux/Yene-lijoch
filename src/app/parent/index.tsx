@@ -31,6 +31,7 @@ import { useTodayLessonForClass } from "@/hooks/useTodayLessonForClass";
 import { useChildAttendance } from "@/hooks/useChildAttendance";
 import { MediaKind } from "@/types/mediaTypes";
 import { colorForKind } from "@/utils/mediaColors";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 const IMAGES = {
   welcome: require("../../../assets/images/teacher-home/teacher-home-welcome.png"),
@@ -66,7 +67,7 @@ export default function ParentHome() {
     groupName,
     isLoading: childrenLoading,
   } = useSelectedChild();
-
+  const { unreadCount } = useNotifications();
   const { events } = useEventsContext();
   const { media } = useMediaContext();
   const { conversations } = useChat();

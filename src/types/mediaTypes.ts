@@ -81,6 +81,7 @@ export interface UseMediaReturn {
 export interface MediaContextValue {
   media: MediaItem[];
   isLoading: boolean;
+  isSaving: boolean;
   error: string | null;
   refetch: () => Promise<MediaItem[]>;
   createMedia: (data: MediaCreateData) => Promise<MediaItem>;
