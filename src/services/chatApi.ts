@@ -1,8 +1,7 @@
 import { ApiConversation, ApiMessage, ChatMessage, ChatRole, Conversation } from "../types/chatTypes";
+import { clientApi, API_BASE } from "./api";
 
-// Adjust to wherever your app centralizes this.
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000";
-const WS_BASE_URL = API_BASE_URL.replace(/^http/, "ws");
+const WS_BASE_URL = API_BASE.replace(/^http/, "ws");
 
 function timeLabel(iso: string) {
   const d = new Date(iso);
@@ -13,21 +12,24 @@ function timeLabel(iso: string) {
   return `${hours}:${minutes} ${ampm}`;
 }
 
-async function request<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(options.headers ?? {}),
-    },
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Request to ${path} failed (${res.status}): ${body}`);
+async function request<T>(
+  path: string,
+  token: string,
+  options: { method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"; body?: unknown } = {}
+): Promise<T> {
+  try {
+    const res = await clientApi.request<T>({
+      url: path,
+      method: options.method ?? "GET",
+      data: options.body,
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    return res.data;
+  } catch (err: any) {
+    const status = err?.response?.status;
+    const body = err?.response?.data;
+    throw new Error(`Request to ${path} failed (${status}): ${JSON.stringify(body)}`);
   }
-  return res.json();
 }
 
 function adaptConversation(c: ApiConversation): Conversation {
@@ -46,17 +48,17 @@ function adaptMessage(m: ApiMessage): ChatMessage {
 }
 
 export async function fetchConversations(token: string): Promise<Conversation[]> {
-  const data = await request<ApiConversation[]>("/chat/conversations/", token);
+  const data = await request<ApiConversation[]>("/conversations/", token);
   return data.map(adaptConversation);
 }
 
 export async function fetchConversation(token: string, id: string): Promise<Conversation> {
-  const data = await request<ApiConversation>(`/chat/conversations/${id}/`, token);
+  const data = await request<ApiConversation>(`/conversations/${id}/`, token);
   return adaptConversation(data);
 }
 
 export async function fetchMessages(token: string, conversationId: string): Promise<ChatMessage[]> {
-  const data = await request<ApiMessage[]>(`/chat/conversations/${conversationId}/messages/`, token);
+  const data = await request<ApiMessage[]>(`/conversations/${conversationId}/messages/`, token);
   return data.map(adaptMessage);
 }
 
@@ -65,9 +67,9 @@ export async function postMessage(
   conversationId: string,
   text: string
 ): Promise<ChatMessage> {
-  const data = await request<ApiMessage>(`/chat/conversations/${conversationId}/messages/`, token, {
+  const data = await request<ApiMessage>(`/conversations/${conversationId}/messages/`, token, {
     method: "POST",
-    body: JSON.stringify({ text }),
+    body: { text },
   });
   return adaptMessage(data);
 }
@@ -77,9 +79,9 @@ export async function postMarkRead(
   conversationId: string,
   role: ChatRole
 ): Promise<void> {
-  await request(`/chat/conversations/${conversationId}/mark_read/`, token, {
+  await request(`/conversations/${conversationId}/mark_read/`, token, {
     method: "POST",
-    body: JSON.stringify({ role }),
+    body: { role },
   });
 }
 
@@ -88,7 +90,7 @@ export function openConversationSocket(
   conversationId: string,
   onMessage: (message: ChatMessage) => void
 ): () => void {
-  const ws = new WebSocket(`${WS_BASE_URL}/ws/chat/${conversationId}/?token=${token}`);
+  const ws = new WebSocket(`${WS_BASE_URL}/ws/${conversationId}/?token=${token}`);
 
   ws.onmessage = (event) => {
     try {
@@ -100,4 +102,15 @@ export function openConversationSocket(
   };
 
   return () => ws.close();
+}
+
+export async function createConversation(
+  token: string,
+  studentId: number | string
+): Promise<Conversation> {
+  const data = await request<ApiConversation>("/conversations/", token, {
+    method: "POST",
+    body: { student: studentId },
+  });
+  return adaptConversation(data);
 }

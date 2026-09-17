@@ -14,7 +14,7 @@ import { ParentColors as C } from "../../constants/parentTheme";
 
 type Props = {
   youtubeId?: string;
-  localUri?: string;
+  fileUri?: string;
   coverUri?: string;
   title?: string;
   kind?: string;
@@ -45,7 +45,7 @@ function isAudioUri(uri: string, kind?: string) {
 
 export function VideoEmbed({
   youtubeId,
-  localUri,
+  fileUri,
   coverUri,
   title,
   kind,
@@ -62,15 +62,15 @@ export function VideoEmbed({
   };
 
   const openLocal = async () => {
-    if (!localUri) return;
-    await Linking.openURL(localUri);
+    if (!fileUri) return;
+    await Linking.openURL(fileUri);
   };
 
-  if (localUri && isImageUri(localUri, kind)) {
+  if (fileUri && isImageUri(fileUri, kind)) {
     return (
       <View style={[styles.wrap, { height }]}>
         <Image
-          source={{ uri: localUri }}
+          source={{ uri: fileUri }}
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />
@@ -78,11 +78,11 @@ export function VideoEmbed({
     );
   }
 
-  if (localUri && Platform.OS === "web" && isVideoUri(localUri)) {
+  if (fileUri && Platform.OS === "web" && isVideoUri(fileUri)) {
     return (
       <View style={[styles.wrap, { height }]}>
         {React.createElement("video", {
-          src: localUri,
+          src: fileUri,
           controls: true,
           style: {
             width: "100%",
@@ -95,7 +95,7 @@ export function VideoEmbed({
     );
   }
 
-  if (localUri && Platform.OS === "web" && isAudioUri(localUri, kind)) {
+  if (fileUri && Platform.OS === "web" && isAudioUri(fileUri, kind)) {
     return (
       <View style={[styles.wrap, styles.nativeCard, { height }]}>
         {coverUri ? (
@@ -106,7 +106,7 @@ export function VideoEmbed({
           />
         ) : null}
         {React.createElement("audio", {
-          src: localUri,
+          src: fileUri,
           controls: true,
           style: { width: "90%" },
         })}
@@ -115,7 +115,7 @@ export function VideoEmbed({
     );
   }
 
-  if (localUri) {
+  if (fileUri) {
     return (
       <TouchableOpacity
         style={[styles.wrap, styles.nativeCard, { height }]}

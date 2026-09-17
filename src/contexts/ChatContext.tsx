@@ -13,6 +13,7 @@ import {
   fetchMessages,
   openConversationSocket,
   postMarkRead,
+  createConversation as apiCreateConversation,
   postMessage,
 } from "../services/chatApi";
 import { ChatMessage, ChatRole, Conversation } from "../types/chatTypes";
@@ -32,7 +33,7 @@ type ChatContextValue = {
   getConversation: (id: string) => Conversation | undefined;
   sendMessage: (conversationId: string, sender: ChatRole, text: string) => Promise<void>;
   markRead: (conversationId: string, reader: ChatRole) => Promise<void>;
-
+  createConversation: (studentId: number | string) => Promise<Conversation>;
   teacherMessages: ChatMessage[];
 };
 
@@ -67,6 +68,23 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refreshConversations();
   }, [refreshConversations]);
+
+  const createConversation = useCallback(
+    async (studentId: number | string) => {
+      if (!accessToken) throw new Error("Not authenticated");
+      const created = await apiCreateConversation(accessToken, studentId);
+
+      // Merge into local state so subsequent getConversation(id) works
+      // immediately, without waiting for refreshConversations.
+      setConversations((prev) => {
+        const exists = prev.some((c) => c.id === created.id);
+        return exists ? prev : [created, ...prev];
+      });
+
+      return created;
+    },
+    [accessToken]
+  );
 
   const loadMessages = useCallback(
     async (conversationId: string) => {
@@ -219,6 +237,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       messagesLoading: (conversationId) => loadingIds.has(conversationId),
       loadMessages,
       subscribeToConversation,
+      createConversation,
 
       getConversation: (id) => conversations.find((c) => c.id === id),
       sendMessage,
@@ -236,6 +255,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       messagesByConversation,
       loadingIds,
       loadMessages,
+      createConversation,
       subscribeToConversation,
       sendMessage,
       markRead,

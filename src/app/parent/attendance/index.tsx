@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -12,89 +12,184 @@ import {
 } from "../../../components/parent/ui";
 import { ParentColors as C } from "../../../constants/parentTheme";
 import { useSelectedChild } from "../../../contexts/SelectedChildContext";
-import { useSharedContent } from "../../../contexts/SharedContentContext";
 import { useLanguage } from "../../../contexts/LanguageContext";
+import { useChildAttendance } from "@/hooks/useChildAttendance";
+import { colorFor } from "@/utils/avatarColors";
+import { createConversation } from "@/services/chatApi";
+import { notify } from "@/utils/notify";
+import { useChat } from "@/contexts/ChatContext";
+
+// Format an ISO date "2026-09-21" → "September 21, 2026"
+function formatDate(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 export default function ParentAttendanceScreen() {
   const { childrenList, selectedChild, selectedId, setSelectedId, groupName } =
     useSelectedChild();
-  const { getAttendanceForStudent, getAttendanceSummary } = useSharedContent();
   const { t } = useLanguage();
+  const { conversations, createConversation } = useChat();
+  const [opening, setOpening] = useState(false);
 
+  const { summary, records, isLoading, error } = useChildAttendance(
+    selectedChild?.id
+  );
+
+  // Compute the attendance percentage from the summary.
+  const percentage = useMemo(() => {
+    if (!summary) return 0;
+    const total = (summary.present ?? 0) + (summary.absent ?? 0);
+    return total > 0 ? Math.round((summary.present / total) * 100) : 0;
+  }, [summary]);
+
+  // Derive the "days" list from the records.
   const days = useMemo(
-    () => getAttendanceForStudent(selectedId),
-    [getAttendanceForStudent, selectedId]
+    () =>
+      records.map((r) => ({
+        id: r.id,
+        weekday: r.weekday ?? "",
+        date: formatDate(r.lesson_date),
+        lesson: r.lesson_title,
+        status: r.status === "absent" ? "absent" : "present",
+      })),
+    [records]
   );
-  const summary = useMemo(
-    () => getAttendanceSummary(selectedId),
-    [getAttendanceSummary, selectedId]
-  );
+
+  const handleMessageTeacher = async () => {
+    if (!selectedChild || opening) return;
+    setOpening(true);
+    try {
+      // If the child already has a conversation, jump to it directly.
+      const existing = conversations.find(
+        (c) => c.childName === selectedChild.name
+      );
+      const conv =
+        existing ?? (await createConversation(selectedChild.id));
+      router.push(`/parent/messages/${conv.id}`);
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.detail ??
+        err?.message ??
+        t("common.error");
+      notify(t("common.error"), String(message));
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  // ---- Guard: no children -----------------------------------------
+  if (!selectedChild) {
+    return (
+      <Screen>
+        <Text style={styles.title}>{t("parent.attendanceTitle")}</Text>
+        <Text style={styles.subtitle}>{t("parent.attendanceSub")}</Text>
+        <SoftCard style={{ marginTop: 16 }}>
+          <Text style={styles.childMeta}>{t("parent.noChildren")}</Text>
+        </SoftCard>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
       <Text style={styles.title}>{t("parent.attendanceTitle")}</Text>
       <Text style={styles.subtitle}>{t("parent.attendanceSub")}</Text>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ marginTop: 12, marginBottom: 8 }}
-      >
-        {childrenList.map((child) => (
-          <ChildChip
-            key={child.id}
-            child={child}
-            active={child.id === selectedId}
-            onPress={() => setSelectedId(child.id)}
-          />
-        ))}
-      </ScrollView>
+      {childrenList.length > 1 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ marginTop: 12, marginBottom: 8 }}
+        >
+          {childrenList.map((child) => (
+            <ChildChip
+              key={child.id}
+              child={child}
+              active={child.id === selectedId}
+              onPress={() => setSelectedId(child.id)}
+            />
+          ))}
+        </ScrollView>
+      ) : null}
 
       <SoftCard style={styles.summaryCard}>
         <View style={styles.summaryTop}>
           <AvatarBubble
             initials={selectedChild.initials}
-            color={selectedChild.avatarColor}
+            color={colorFor(selectedChild.name)}
             size={52}
           />
           <View style={{ flex: 1 }}>
             <Text style={styles.childName}>{selectedChild.name}</Text>
             <Text style={styles.childMeta}>
-              {groupName} · {selectedChild.grade}
+              {groupName ?? selectedChild.groupName ?? ""}
+              {selectedChild.grade ? ` · ${selectedChild.grade}` : ""}
             </Text>
           </View>
           <View style={styles.pctBox}>
-            <Text style={styles.pct}>{selectedChild.attendance}%</Text>
+            <Text style={styles.pct}>{percentage}%</Text>
             <Text style={styles.pctLabel}>{t("parent.rate")}</Text>
           </View>
         </View>
 
         <View style={styles.summaryRow}>
           <SummaryItem
-            value={`${summary.present}`}
+            value={`${summary?.present ?? 0}`}
             label={t("parent.present")}
             tone="success"
           />
           <SummaryItem
-            value={`${summary.absent}`}
+            value={`${summary?.absent ?? 0}`}
             label={t("parent.absent")}
             tone="danger"
           />
           <SummaryItem
-            value={`${summary.total}`}
+            value={`${summary?.total ?? 0}`}
             label={t("parent.recorded")}
             tone="muted"
           />
         </View>
 
         <PrimaryButton
-          label={t("parent.messageTeacher")}
+          label={
+            opening
+              ? t("parent.openingChat")
+              : t("parent.messageTeacher")
+          }
           icon="chatbubble-ellipses-outline"
-          onPress={() => router.push("/parent/messages")}
+          onPress={handleMessageTeacher}
         />
       </SoftCard>
 
       <SectionLabel title={t("parent.recentSundays")} />
+
+      {isLoading && days.length === 0 ? (
+        <SoftCard>
+          <Text style={styles.childMeta}>{t("common.loading")}</Text>
+        </SoftCard>
+      ) : null}
+
+      {error && days.length === 0 ? (
+        <SoftCard>
+          <Text style={[styles.childMeta, { color: C.danger }]}>{error}</Text>
+        </SoftCard>
+      ) : null}
+
+      {!isLoading && !error && days.length === 0 ? (
+        <SoftCard>
+          <Text style={styles.childMeta}>
+            {t("parent.noAttendance")}
+          </Text>
+        </SoftCard>
+      ) : null}
+
       {days.map((day) => {
         const present = day.status === "present";
         return (
@@ -114,7 +209,8 @@ export default function ParentAttendanceScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.dayTitle}>
-                  {day.weekday}, {day.date}
+                  {day.weekday ? `${day.weekday}, ` : ""}
+                  {day.date}
                 </Text>
                 <Text style={styles.dayLesson}>{day.lesson}</Text>
               </View>

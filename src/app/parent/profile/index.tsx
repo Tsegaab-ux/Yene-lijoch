@@ -1,6 +1,7 @@
 import React from "react";
-import { Text, StyleSheet, Alert } from "react-native";
+import { Text, StyleSheet, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import {
   Screen,
   SoftCard,
@@ -8,22 +9,24 @@ import {
   MenuRow,
 } from "../../../components/parent/ui";
 import { LanguageToggle } from "../../../components/LanguageToggle";
-import { PARENT, NOTIFICATIONS } from "../../../data/parentMock";
-import { useSelectedChild } from "../../../contexts/SelectedChildContext";
-import { useLanguage } from "../../../contexts/LanguageContext";
 import { ParentColors as C } from "../../../constants/parentTheme";
-import { TouchableOpacity, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { useLanguage } from "../../../contexts/LanguageContext";
+import { useSelectedChild } from "../../../contexts/SelectedChildContext";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { notify } from "@/utils/notify";
+import { colorFor, deriveInitials } from "@/utils/avatarColors";
 
 export default function ProfileScreen() {
-  const { t } = useLanguage();
-  const { logout, user, } = useAuthContext();
-  const { childrenList } = useSelectedChild();
-  const unread = NOTIFICATIONS.filter((n) => n.unread).length;
+  const { t, lang } = useLanguage();
+  const { logout } = useAuthContext();
+  const { parent, childrenList } = useSelectedChild();
+
+  console.log(parent)
+  // Notifications endpoint not built yet — placeholder count.
+  const unread = 0;
 
   const handleLogout = () => {
-    Alert.alert(
+    notify(
       t("parent.logout"),
       t("parent.logout"),
       [
@@ -42,6 +45,12 @@ export default function ProfileScreen() {
       ]
     );
   };
+
+  const displayName = parent?.full_name || t("parent.parentFallback");
+  const displayEmail = parent?.email || "";
+  const initials = deriveInitials(displayName);
+  const languageLabel =
+    lang === "am" ? t("common.amharic") : t("common.english");
 
   return (
     <Screen>
@@ -64,49 +73,58 @@ export default function ProfileScreen() {
       </View>
 
       <SoftCard style={styles.hero}>
-        <AvatarBubble initials="TM" color={C.primary} size={64} />
-        <Text style={styles.name}>{PARENT.name}</Text>
-        <Text style={styles.meta}>{PARENT.email}</Text>
+        <AvatarBubble
+          initials={initials}
+          color={colorFor(displayName)}
+          size={64}
+        />
+        <Text style={styles.name}>{displayName}</Text>
+        {displayEmail ? (
+          <Text style={styles.meta}>{displayEmail}</Text>
+        ) : null}
         <Text style={styles.meta}>
-          {PARENT.role} · {childrenList.length} children
+          {t("parent.roleLabel")} · {childrenList.length}{" "}
+          {childrenList.length === 1
+            ? t("parent.childSingular")
+            : t("parent.childPlural")}
         </Text>
       </SoftCard>
 
       <SoftCard style={{ marginTop: 16 }}>
         <MenuRow
           icon="person-outline"
-          title="Parent Profile"
-          subtitle="Name, email, and phone"
+          title={t("parent.menu.profile")}
+          subtitle={t("parent.menu.profileSub")}
           onPress={() => router.push("/parent/profile/account")}
         />
         <MenuRow
           icon="people-outline"
-          title="My Children"
-          subtitle="Manage connected children"
+          title={t("parent.menu.children")}
+          subtitle={t("parent.menu.childrenSub")}
           onPress={() => router.push("/parent/profile/children")}
         />
         <MenuRow
           icon="settings-outline"
-          title="Account Settings"
-          subtitle="Password and privacy"
+          title={t("parent.menu.settings")}
+          subtitle={t("parent.menu.settingsSub")}
           onPress={() => router.push("/parent/profile/settings")}
         />
         <MenuRow
           icon="globe-outline"
-          title="Language"
-          subtitle="English"
+          title={t("parent.menu.language")}
+          subtitle={languageLabel}
           onPress={() => router.push("/parent/profile/language")}
         />
         <MenuRow
           icon="notifications-outline"
-          title="Notifications Settings"
-          subtitle="Attendance, events, courses, chat"
+          title={t("parent.menu.notifications")}
+          subtitle={t("parent.menu.notificationsSub")}
           onPress={() => router.push("/parent/profile/notification-settings")}
         />
         <MenuRow
           icon="help-circle-outline"
-          title="Help & Support"
-          subtitle="FAQs and contact"
+          title={t("parent.menu.help")}
+          subtitle={t("parent.menu.helpSub")}
           onPress={() => router.push("/parent/profile/help")}
         />
         <MenuRow
@@ -114,7 +132,7 @@ export default function ProfileScreen() {
           title={t("parent.logout")}
           subtitle={t("common.login")}
           danger
-          onPress={()=> handleLogout()}
+          onPress={handleLogout}
         />
       </SoftCard>
     </Screen>
@@ -122,10 +140,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  langRow: {
-    alignItems: "flex-end",
-    marginBottom: 8,
-  },
+  langRow: { alignItems: "flex-end", marginBottom: 8 },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -137,11 +152,7 @@ const styles = StyleSheet.create({
     color: C.text,
     letterSpacing: -0.4,
   },
-  subtitle: {
-    marginTop: 4,
-    color: C.muted,
-    fontSize: 14,
-  },
+  subtitle: { marginTop: 4, color: C.muted, fontSize: 14 },
   bell: {
     width: 42,
     height: 42,

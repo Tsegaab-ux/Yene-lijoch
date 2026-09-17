@@ -3,41 +3,58 @@ import { Text, StyleSheet, Linking, TouchableOpacity } from "react-native";
 import { router } from "expo-router";
 import { Screen, TopBar, Card } from "../../../components/parent/ui";
 import { ParentColors as C } from "../../../constants/parentTheme";
+import { useLanguage } from "../../../contexts/LanguageContext";
+import { SUPPORT_EMAIL } from "../../../constants/support";
+import { notify } from "@/utils/notify";
 
-const FAQS = [
-  {
-    q: "How do I switch between children?",
-    a: "Use the child chips on Home or Attendance, or open My Children in Profile.",
-  },
-  {
-    q: "Where are kids videos and songs?",
-    a: "Home shows embedded videos, songs, and Bible stories. Open Courses for the full library.",
-  },
-  {
-    q: "How do I check attendance?",
-    a: "Open the Attendance tab to see present/absent Sundays for each child.",
-  },
-  {
-    q: "How do I message the teacher?",
-    a: "Open Messages to chat with your child’s Sunday school teacher.",
-  },
-];
+const FAQ_KEYS = [
+  "parent.help.faq.switchChildren",
+  "parent.help.faq.videos",
+  "parent.help.faq.attendance",
+  "parent.help.faq.messaging",
+] as const;
 
 export default function HelpScreen() {
+  const { t } = useLanguage();
+
+  const handleContact = async () => {
+    const url = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
+      "Parent app support"
+    )}`;
+
+    const supported = await Linking.canOpenURL(url);
+    if (!supported) {
+      notify(
+        t("common.error"),
+        t("parent.help.noMailApp", { email: SUPPORT_EMAIL })
+      );
+      return;
+    }
+
+    try {
+      await Linking.openURL(url);
+    } catch (err) {
+      notify(t("common.error"), String(err));
+    }
+  };
+
   return (
     <Screen>
-      <TopBar title="Help & Support" showBell={false} onBack={() => router.back()} />
-      {FAQS.map((item) => (
-        <Card key={item.q} style={{ marginBottom: 12 }}>
-          <Text style={styles.q}>{item.q}</Text>
-          <Text style={styles.a}>{item.a}</Text>
+      <TopBar
+        title={t("parent.help.title")}
+        showBell={false}
+        onBack={() => router.back()}
+      />
+
+      {FAQ_KEYS.map((key) => (
+        <Card key={key} style={{ marginBottom: 12 }}>
+          <Text style={styles.q}>{t(`${key}.q`)}</Text>
+          <Text style={styles.a}>{t(`${key}.a`)}</Text>
         </Card>
       ))}
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => Linking.openURL("mailto:support@yenelijoch.com")}
-      >
-        <Text style={styles.buttonText}>Contact support</Text>
+
+      <TouchableOpacity style={styles.button} onPress={handleContact}>
+        <Text style={styles.buttonText}>{t("parent.help.contactSupport")}</Text>
       </TouchableOpacity>
     </Screen>
   );

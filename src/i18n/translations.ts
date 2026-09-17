@@ -31,6 +31,7 @@ export const en = {
     english: "English",
     amharic: "አማርኛ",
     language: "Language",
+    notFound: "Not found",
   },
   welcome: {
     brand: "Yene Lijoch",
@@ -172,6 +173,88 @@ export const en = {
     logout: "Logout",
     all: "All",
     lessons: "Lessons",
+    parentFallback: "Parent",
+    roleLabel: "Parent",
+    childSingular: "child",
+    childPlural: "children",
+    noUpcomingEvents: "No upcoming events right now.",  // (from previous fix)
+
+    eventTitle: "Event",                                // ← add
+    eventAbout: "About",                                // ← add
+    askTeacherAboutEvent: "Ask Teacher about this event", // ← add
+    menu: {
+      profile: "Parent Profile",
+      profileSub: "Name, email, and phone",
+      children: "My Children",
+      childrenSub: "Manage connected children",
+      settings: "Account Settings",
+      settingsSub: "Password and privacy",
+      language: "Language",
+      notifications: "Notifications Settings",
+      notificationsSub: "Attendance, events, courses, chat",
+      help: "Help & Support",
+      helpSub: "FAQs and contact",
+    },
+    profileForm: {
+      title: "Parent Profile",
+      fullName: "Full name",
+      email: "Email",
+      phone: "Phone",
+      save: "Save changes",
+      saving: "Saving…",
+      saved: "Saved",
+      savedBody: "Parent profile details were updated.",
+      nameRequired: "Please enter your name.",
+    },
+    children: {
+      title: "My Children",
+      age: "Age",
+      add: "Add child",
+      addTitle: "Add child",
+      addBody: "Child linking will be available in a future update.",
+    },
+    language: {
+      title: "Language",
+      english: "English",
+      amharic: "አማርኛ",
+    },
+    help: {
+      title: "Help & Support",
+      contactSupport: "Contact support",
+      noMailApp: "We couldn't open your mail app. You can reach us at {email}.",
+      faq: {
+        switchChildren: {
+          q: "How do I switch between children?",
+          a: "Use the child chips on Home or Attendance, or open My Children in Profile.",
+        },
+        videos: {
+          q: "Where are kids videos and songs?",
+          a: "Home shows embedded videos, songs, and Bible stories. Open Courses for the full library.",
+        },
+        attendance: {
+          q: "How do I check attendance?",
+          a: "Open the Attendance tab to see present/absent Sundays for each child.",
+        },
+        messaging: {
+          q: "How do I message the teacher?",
+          a: "Open Messages to chat with your child's Sunday school teacher.",
+        },
+      },
+    },
+    openingChat: "Opening chat…",
+    roleTeacher: "Teacher",
+    teacherFallback: "Teacher",
+    noConversations: "You don't have any conversations yet.",
+    noConversationsSearch: "No conversations match your search.",
+    settings: {
+      title: "Account Settings",
+      privateProfile: "Private profile",
+      privateProfileSub: "Only teachers and linked family can see details.",
+      changePassword: "Change password",
+      deleteAccount: "Delete account",
+      deleteConfirmTitle: "Deactivate account",
+      deleteConfirmBody: "You can ask an admin to reactivate it later.",
+    },
   },
   teacher: {
     portal: "Sunday School",
@@ -199,12 +282,27 @@ export const en = {
     messagesSub: "Chat with parents",
     curriculumTitle: "Curriculum",
     profileTitle: "Profile",
+    student: {
+      title: "Student",
+      notFound: "Student not found in your roster.",
+      parent: "Parent",
+      today: "Today",
+      enrollment: "Enrollment",
+      grade: "Grade",
+      age: "Age",
+      parentContact: "Parent contact",
+      messageParent: "Message parent",
+      chatUnavailableTitle: "Chat unavailable",
+      chatUnavailableBody: "Messaging parents will be available in a future update.",
+    },
+
     profile: {
       info: "Teacher Information",
       settings: "Settings",
       language: "Language",
       help: "Help & Support",
     },
+
     info: {
       title: "Teacher Information",
       fullName: "Full name",
@@ -272,6 +370,11 @@ export const en = {
         },
       },
     },
+
+    messages: {
+      title: "Messages",
+      notFound: "This conversation could not be found.",
+    },
   },
   admin: {
     portal: "Admin",
@@ -322,6 +425,8 @@ export const am: TranslationKeys = {
     search: "ፈልግ",
     loading: "በመጫን ላይ...",
     success: "ተሳክቷል",
+    language: "ቋንቋ",
+    notFound: "አልተገኘም", 
     error: "ስህተት",
     yes: "አዎ",
     no: "አይ",
@@ -334,7 +439,6 @@ export const am: TranslationKeys = {
     selected: "ተመርጧል",
     english: "English",
     amharic: "አማርኛ",
-    language: "ቋንቋ",
   },
   welcome: {
     brand: "የኔ ልጆች",
@@ -471,9 +575,90 @@ export const am: TranslationKeys = {
     notificationsSub: "ከአስተዳዳሪ እና መምህራን ዝመናዎች",
     profileTitle: "መገለጫ",
     profileSub: "መለያ እና የቤተሰብ ቅንብሮች",
+    eventTitle: "ዝግጅት",                               // ← add
+    eventAbout: "ስለ",                                  // ← add
+    askTeacherAboutEvent: "ስለዚህ ዝግጅት መምህርዎን ይጠይቁ", 
     logout: "ውጣ",
     all: "ሁሉም",
     lessons: "ትምህርቶች",
+    parentFallback: "ወላጅ",
+    roleLabel: "ወላጅ",
+    childSingular: "ልጅ",
+    childPlural: "ልጆች",
+    noUpcomingEvents: "በአሁኑ ጊዜ ምንም መጪ ዝግጅት የለም።", 
+    openingChat: "ውይይት በመክፈት ላይ…",
+    menu: {
+      profile: "የወላጅ መገለጫ",
+      profileSub: "ስም፣ ኢሜይል እና ስልክ",
+      children: "ልጆቼ",
+      childrenSub: "የተገናኙ ልጆችን ያስተዳድሩ",
+      settings: "የመለያ ቅንብሮች",
+      settingsSub: "የይለፍ ቃል እና ግላዊነት",
+      language: "ቋንቋ",
+      notifications: "የማሳወቂያ ቅንብሮች",
+      notificationsSub: "መገኘት፣ ዝግጅቶች፣ ኮርሶች፣ ውይይት",
+      help: "እርዳታ እና ድጋፍ",
+      helpSub: "ጥያቄዎች እና አድራሻ",
+    },
+    language: {
+      title: "ቋንቋ",
+      english: "English",
+      amharic: "አማርኛ",
+    },
+    roleTeacher: "መምህር",
+    teacherFallback: "መምህር",
+    noConversations: "እስካሁን ምንም ውይይት የለዎትም።",
+    noConversationsSearch: "ከፍለጋዎ ጋር የሚዛመድ ውይይት የለም።",
+    profileForm: {
+      title: "የወላጅ መገለጫ",
+      fullName: "ሙሉ ስም",
+      email: "ኢሜይል",
+      phone: "ስልክ",
+      save: "ለውጦችን አስቀምጥ",
+      saving: "በማስቀመጥ ላይ…",
+      saved: "ተቀምጧል",
+      savedBody: "የወላጅ መገለጫ ዝርዝሮች ተዘምነዋል።",
+      nameRequired: "እባክዎ ስምዎን ያስገቡ።",
+    },
+    children: {
+      title: "ልጆቼ",
+      age: "ዕድሜ",
+      add: "ልጅ አክል",
+      addTitle: "ልጅ አክል",
+      addBody: "ልጅ ማገናኘት በሚቀጥለው ዝመና ይገኛል።",
+    },
+    help: {
+      title: "እርዳታ እና ድጋፍ",
+      contactSupport: "ድጋፍ ያግኙ",
+      noMailApp: "የኢሜይል መተግበሪያ መክፈት አልተቻለም። በ{email} ማግኘት ይችላሉ።",
+      faq: {
+        switchChildren: {
+          q: "እንዴት በልጆች መካከል እቀያይራለሁ?",
+          a: "በመነሻ ወይም በመገኘት ገጽ ላይ የልጅ ቺፖችን ይጠቀሙ ወይም በመገለጫ ውስጥ ልጆቼን ይክፈቱ።",
+        },
+        videos: {
+          q: "የልጆች ቪዲዮዎች እና ዘፈኖች የት አሉ?",
+          a: "መነሻ ገጽ የተካተቱ ቪዲዮዎችን፣ ዘፈኖችን እና የመጽሐፍ ቅዱስ ታሪኮችን ያሳያል። ሙሉ ቤተ መጻሕፍቱን ለማየት ኮርሶችን ይክፈቱ።",
+        },
+        attendance: {
+          q: "መገኘትን እንዴት እመለከታለሁ?",
+          a: "ለእያንዳንዱ ልጅ የተገኙ/የተለዩ እሁዶችን ለማየት የመገኘት ትር ይክፈቱ።",
+        },
+        messaging: {
+          q: "እንዴት ለመምህሩ መልእክት እልካለሁ?",
+          a: "ከልጅዎ የሰንበት ትምህርት ቤት መምህር ጋር ለመወያየት መልእክቶችን ይክፈቱ።",
+        },
+      },
+    },
+    settings: {
+      title: "የመለያ ቅንብሮች",
+      privateProfile: "የግል መገለጫ",
+      privateProfileSub: "ዝርዝሮችን ማየት የሚችሉት መምህራን እና የተገናኙ ቤተሰቦች ብቻ ናቸው።",
+      changePassword: "የይለፍ ቃል ቀይር",
+      deleteAccount: "መለያ ሰርዝ",
+      deleteConfirmTitle: "መለያ አቁም",
+      deleteConfirmBody: "በኋላ እንደገና እንዲነቃ አስተዳዳሪ መጠየቅ ይችላሉ።",
+    },
   },
   teacher: {
     portal: "ሰንበት ትምህርት",
@@ -506,6 +691,20 @@ export const am: TranslationKeys = {
       settings: "ቅንብሮች",
       language: "ቋንቋ",
       help: "እርዳታ እና ድጋፍ",
+    },
+
+    student: {
+      title: "ተማሪ",
+      notFound: "ተማሪው በዝርዝርዎ ውስጥ አልተገኘም።",
+      parent: "ወላጅ",
+      today: "ዛሬ",
+      enrollment: "ምዝገባ",
+      grade: "ክፍል",
+      age: "ዕድሜ",
+      parentContact: "የወላጅ አድራሻ",
+      messageParent: "ለወላጅ መልእክት ላክ",
+      chatUnavailableTitle: "ውይይት አይገኝም",
+      chatUnavailableBody: "ለወላጆች መልእክት መላክ በሚቀጥለው ዝመና ይገኛል።",
     },
 
     info: {
@@ -573,6 +772,11 @@ export const am: TranslationKeys = {
           a: "የተማሪ መገለጫ ይክፈቱ፣ ከዚያም ለወላጅ መልእክት ላክ ይንኩ።",
         },
       },
+    },
+
+    messages: {
+      title: "መልእክቶች",
+      notFound: "ይህ ውይይት አልተገኘም።",
     },
   },
   admin: {

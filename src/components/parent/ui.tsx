@@ -13,12 +13,12 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ParentColors as C } from "../../constants/parentTheme";
+import { ParentChild } from "@/types/parentTypes";
 
 type ChildLike = {
   id: string;
   name: string;
   initials: string;
-  avatarColor: string;
 };
 
 export function Screen({
@@ -163,7 +163,7 @@ export function ChildChip({
   active,
   onPress,
 }: {
-  child: ChildLike;
+  child: ParentChild;
   active: boolean;
   onPress: () => void;
 }) {
@@ -175,7 +175,7 @@ export function ChildChip({
     >
       <AvatarBubble
         initials={child.initials}
-        color={child.avatarColor}
+        color={C.primary}
         size={28}
       />
       <Text style={[styles.childChipText, active && styles.childChipTextActive]}>
@@ -240,13 +240,13 @@ export function Avatar({
   child,
   size = 44,
 }: {
-  child: ChildLike;
+  child: ParentChild;
   size?: number;
 }) {
   return (
     <AvatarBubble
       initials={child.initials}
-      color={child.avatarColor}
+      color={C.primary}
       size={size}
     />
   );

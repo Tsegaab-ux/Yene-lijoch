@@ -1,65 +1,94 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { SharedStudent } from "../data/sharedContent";
-import { useSharedContent } from "./SharedContentContext";
+// app/contexts/SelectedChildContext.tsx
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { useParentData } from "../hooks/useParentData";
+import { ParentChild } from "../types/parentTypes";
 
-const PARENT_EMAIL = "parent@test.com";
+interface SelectedChildContextValue {
+  // data
+  parent: ReturnType<typeof useParentData>["parent"];
+  childrenList: ParentChild[];
+  selectedChild: ParentChild | null;
+  selectedId: number | null;
+  groupName: string | null;
 
-type SelectedChildContextValue = {
-  childrenList: SharedStudent[];
-  selectedChild: SharedStudent;
-  selectedId: string;
-  setSelectedId: (id: string) => void;
-  groupName: string;
-};
+  // actions
+  setSelectedId: (id: number) => void;
 
-const SelectedChildContext = createContext<SelectedChildContextValue | null>(
-  null
+  // state
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => Promise<any>;
+}
+
+const SelectedChildContext = createContext<SelectedChildContextValue | undefined>(
+  undefined
 );
-
-const EMPTY: SharedStudent = {
-  id: "none",
-  name: "No child",
-  groupId: "",
-  grade: "-",
-  age: 0,
-  parentName: "Parent",
-  parentEmail: PARENT_EMAIL,
-  initials: "NC",
-  avatarColor: "#8A847A",
-  attendance: 0,
-  overallProgress: 0,
-  streak: 0,
-};
 
 export function SelectedChildProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { getParentChildren, getGroupName } = useSharedContent();
-  const childrenList = getParentChildren(PARENT_EMAIL);
-  const [selectedId, setSelectedId] = useState(childrenList[0]?.id ?? "none");
+  const { parent, children: childrenList, isLoading, error, refetch } =
+    useParentData();
 
+  const [selectedId, setSelectedIdState] = useState<number | null>(null);
+
+  // Auto-select the first child once the list loads.
   useEffect(() => {
-    if (!childrenList.find((c) => c.id === selectedId) && childrenList[0]) {
-      setSelectedId(childrenList[0].id);
+    if (selectedId === null && childrenList.length > 0) {
+      setSelectedIdState(childrenList[0].id);
+    }
+    // If the selected child disappears (removed from the roster),
+    // fall back to the first available.
+    if (
+      selectedId !== null &&
+      childrenList.length > 0 &&
+      !childrenList.some((c) => c.id === selectedId)
+    ) {
+      setSelectedIdState(childrenList[0].id);
     }
   }, [childrenList, selectedId]);
 
-  const value = useMemo(() => {
-    const selectedChild =
-      childrenList.find((child) => child.id === selectedId) ??
-      childrenList[0] ??
-      EMPTY;
+  const selectedChild = useMemo(
+    () => childrenList.find((c) => c.id === selectedId) ?? null,
+    [childrenList, selectedId]
+  );
 
-    return {
+  const setSelectedId = useCallback((id: number) => {
+    setSelectedIdState(id);
+  }, []);
+
+  const value = useMemo<SelectedChildContextValue>(
+    () => ({
+      parent,
       childrenList,
       selectedChild,
-      selectedId: selectedChild.id,
+      selectedId,
+      groupName: selectedChild?.groupName ?? null,
       setSelectedId,
-      groupName: getGroupName(selectedChild.groupId),
-    };
-  }, [childrenList, selectedId, getGroupName]);
+      isLoading,
+      error,
+      refetch,
+    }),
+    [
+      parent,
+      childrenList,
+      selectedChild,
+      selectedId,
+      setSelectedId,
+      isLoading,
+      error,
+      refetch,
+    ]
+  );
 
   return (
     <SelectedChildContext.Provider value={value}>
@@ -68,12 +97,12 @@ export function SelectedChildProvider({
   );
 }
 
-export function useSelectedChild() {
-  const context = useContext(SelectedChildContext);
-  if (!context) {
+export function useSelectedChild(): SelectedChildContextValue {
+  const ctx = useContext(SelectedChildContext);
+  if (!ctx) {
     throw new Error(
-      "useSelectedChild must be used within SelectedChildProvider"
+      "useSelectedChild must be used inside <SelectedChildProvider>"
     );
   }
-  return context;
+  return ctx;
 }

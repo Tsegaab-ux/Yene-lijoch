@@ -26,19 +26,11 @@ import { useAttendance } from "@/hooks/useAttendance";
 import { useStudentData } from "@/hooks/useStudentData";
 import { Student } from "@/types/studentTypes";
 import { AttendanceStatus } from "@/types/attendanceTypes";
+import { notify } from "@/utils/notify";
 
 // ------------------------------------------------------------------
 // Cross-platform alert — RN Web stubs Alert.alert
 // ------------------------------------------------------------------
-function notify(title: string, message: string, onOk?: () => void) {
-  if (Platform.OS === "web") {
-    // eslint-disable-next-line no-alert
-    window.alert(`${title}\n\n${message}`);
-    onOk?.();
-  } else {
-    Alert.alert(title, message, [{ text: "OK", onPress: onOk }]);
-  }
-}
 
 type Mark = "present" | "absent";
 
@@ -183,7 +175,7 @@ export default function AttendanceScreen() {
       notify(
         "Attendance saved",
         `${weekdayDraft}, ${dateDraft}\n${summary.present} present · ${summary.absent} absent`,
-        () => router.back()
+        [{ text: "OK", onPress: () => router.back() }]
       );
     } catch (err) {
       notify("Could not save", String(err));
@@ -301,6 +293,7 @@ export default function AttendanceScreen() {
         label={t("teacher.saveAttendance")}
         icon="checkmark-done-outline"
         onPress={handleSaveAttendance}
+        disabled={false}
       />
 
       <Modal
@@ -337,6 +330,7 @@ export default function AttendanceScreen() {
             <PrimaryButton
               label={t("teacher.addStudent")}
               onPress={handleAddStudent}
+              disabled={false}
             />
             <TouchableOpacity
               style={styles.cancel}

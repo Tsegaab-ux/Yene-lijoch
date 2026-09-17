@@ -1,7 +1,15 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { ChatThread } from "../../../components/chat/ChatUI";
+import { SoftCard, BackHeader } from "../../../components/parent/ui";
 import { useChat } from "../../../contexts/ChatContext";
+import { useLanguage } from "../../../contexts/LanguageContext";
 import { ParentColors as C } from "../../../constants/parentTheme";
 
 const theme = {
@@ -17,13 +25,61 @@ const theme = {
 };
 
 export default function ParentChatThread() {
+  const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getConversation, getMessages, sendMessage, markRead } = useChat();
-  const conversation = getConversation(id);
+
+  const {
+    getConversation,
+    getMessages,
+    loadMessages,
+    subscribeToConversation,
+    sendMessage,
+    markRead,
+    conversationsLoading,
+  } = useChat();
+
+  const conversation = id ? getConversation(id) : undefined;
+  const conversationId = conversation?.id;
+
+  // Load message history + clear the unread badge on open.
+  useEffect(() => {
+    if (!conversationId) return;
+    loadMessages(conversationId);
+    markRead(conversationId, "parent");
+  }, [conversationId, loadMessages, markRead]);
+
+  // Subscribe to live updates while the thread is open.
+  useEffect(() => {
+    if (!conversationId) return;
+    const unsubscribe = subscribeToConversation(conversationId);
+    return () => unsubscribe();
+  }, [conversationId, subscribeToConversation]);
+
   const messages = useMemo(
-    () => getMessages(conversation.id),
-    [getMessages, conversation.id]
+    () => (conversationId ? getMessages(conversationId) : []),
+    [conversationId, getMessages]
   );
+
+  // ---- Loading / not-found ------------------------------------------
+  if (!conversation) {
+    return (
+      <View style={styles.center}>
+        <BackHeader title={t("parent.messagesTitle")} />
+        {conversationsLoading ? (
+          <>
+            <ActivityIndicator color={C.primary} />
+            <Text style={styles.muted}>{t("common.loading")}</Text>
+          </>
+        ) : (
+          <SoftCard>
+            <Text style={styles.muted}>
+              {t("parent.conversationNotFound")}
+            </Text>
+          </SoftCard>
+        )}
+      </View>
+    );
+  }
 
   return (
     <ChatThread
@@ -36,3 +92,16 @@ export default function ParentChatThread() {
     />
   );
 }
+
+const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    backgroundColor: C.bg,
+    padding: 20,
+  },
+  muted: {
+    color: C.muted,
+    textAlign: "center",
+    marginTop: 12,
+  },
+});

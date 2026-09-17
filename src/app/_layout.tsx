@@ -4,17 +4,20 @@ import { ChatProvider } from "../contexts/ChatContext";
 import { LanguageProvider } from "../contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { EventsProvider } from "@/contexts/EventsContext";
+import { MediaProvider } from "@/contexts/MediaContext";
 
 export default function RootLayout() {
   return (
     <LanguageProvider>
       <AuthProvider>
         <SharedContentProvider>
-          <EventsProvider>  
-            <ChatProvider>
-              <Stack screenOptions={{ headerShown: false }} />
-            </ChatProvider>
-          </EventsProvider>
+          <MediaProvider>
+            <EventsProvider>  
+              <ChatProvider>
+                <Stack screenOptions={{ headerShown: false }} />
+              </ChatProvider>
+            </EventsProvider>
+          </MediaProvider>
         </SharedContentProvider>
       </AuthProvider>
     </LanguageProvider>

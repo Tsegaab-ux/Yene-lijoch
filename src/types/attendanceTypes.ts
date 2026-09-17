@@ -6,7 +6,8 @@ export interface AttendanceRecord {
   id: number;
   lesson: number;
   lesson_title: string;
-  lesson_date: string;
+  lesson_date: string;    
+  weekday?: string;   
   class_name: string;
   student: number;
   student_name: string;

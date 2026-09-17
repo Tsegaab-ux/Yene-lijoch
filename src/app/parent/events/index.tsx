@@ -1,40 +1,110 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useMemo } from "react";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Screen, SoftCard, SectionLabel } from "../../../components/parent/ui";
 import { ParentColors as C } from "../../../constants/parentTheme";
-import { useSharedContent } from "../../../contexts/SharedContentContext";
 import { useLanguage } from "../../../contexts/LanguageContext";
+import { useEventsContext } from "@/contexts/EventsContext";
 
 export default function ParentEventsScreen() {
-  const { publishedEvents } = useSharedContent();
   const { t } = useLanguage();
-  const upcoming = publishedEvents.filter((e) => e.status !== "past");
-  const past = publishedEvents.filter((e) => e.status === "past");
+  const { events, isLoading, error } = useEventsContext();
+
+  const published = useMemo(
+    () => (events ?? []).filter((e) => e.published),
+    [events]
+  );
+
+  const { upcoming, past } = useMemo(() => {
+    const now = new Date();
+
+    const isPast = (e: typeof published[number]) => {
+      if (e.status === "completed" || e.status === "cancelled") return true;
+      if (!e.start_datetime) return false;
+      return new Date(e.start_datetime) < now;
+    };
+
+    return {
+      upcoming: published
+        .filter((e) => !isPast(e))
+        .sort(
+          (a, b) =>
+            new Date(a.start_datetime ?? 0).getTime() -
+            new Date(b.start_datetime ?? 0).getTime()
+        ),
+      past: published
+        .filter(isPast)
+        .sort(
+          (a, b) =>
+            new Date(b.start_datetime ?? 0).getTime() -
+            new Date(a.start_datetime ?? 0).getTime()
+        ),
+    };
+  }, [published]);
+
+  // ---- Loading guard ----------------------------------------------
+  if (isLoading && published.length === 0) {
+    return (
+      <Screen>
+        <Text style={styles.title}>{t("parent.eventsTitle")}</Text>
+        <Text style={styles.subtitle}>{t("parent.eventsSub")}</Text>
+        <View style={styles.center}>
+          <ActivityIndicator color={C.primary} />
+          <Text style={styles.meta}>{t("common.loading")}</Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  // ---- Error guard ------------------------------------------------
+  if (error && published.length === 0) {
+    return (
+      <Screen>
+        <Text style={styles.title}>{t("parent.eventsTitle")}</Text>
+        <Text style={styles.subtitle}>{t("parent.eventsSub")}</Text>
+        <SoftCard style={styles.card}>
+          <Text style={[styles.meta, { color: C.danger }]}>{error}</Text>
+        </SoftCard>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
       <Text style={styles.title}>{t("parent.eventsTitle")}</Text>
       <Text style={styles.subtitle}>{t("parent.eventsSub")}</Text>
 
+      {/* ---------- Upcoming ---------- */}
       <SectionLabel title={t("parent.upcoming")} />
-      {upcoming.map((event) => (
-        <SoftCard
-          key={event.id}
-          style={styles.card}
-          onPress={() => router.push(`/parent/events/${event.id}` as any)}
-        >
-          <Text style={styles.eventTitle}>{event.title}</Text>
-          <Text style={styles.meta}>{event.date}</Text>
-          <Text style={styles.meta}>{event.time}</Text>
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={15} color={C.muted} />
-            <Text style={styles.location}>{event.location}</Text>
-          </View>
-        </SoftCard>
-      ))}
 
+      {upcoming.length === 0 ? (
+        <SoftCard style={styles.card}>
+          <Text style={styles.meta}>{t("parent.noUpcomingEvents")}</Text>
+        </SoftCard>
+      ) : (
+        upcoming.map((event) => (
+          <SoftCard
+            key={event.id}
+            style={styles.card}
+            onPress={() =>
+              router.push(`/parent/events/${event.id}` as any)
+            }
+          >
+            <Text style={styles.eventTitle}>{event.title}</Text>
+            <Text style={styles.meta}>{event.date}</Text>
+            <Text style={styles.meta}>{event.time}</Text>
+            {event.location ? (
+              <View style={styles.locationRow}>
+                <Ionicons name="location-outline" size={15} color={C.muted} />
+                <Text style={styles.location}>{event.location}</Text>
+              </View>
+            ) : null}
+          </SoftCard>
+        ))
+      )}
+
+      {/* ---------- Past ---------- */}
       {past.length > 0 ? (
         <>
           <SectionLabel title={t("parent.past")} />
@@ -42,7 +112,9 @@ export default function ParentEventsScreen() {
             <SoftCard
               key={event.id}
               style={styles.card}
-              onPress={() => router.push(`/parent/events/${event.id}` as any)}
+              onPress={() =>
+                router.push(`/parent/events/${event.id}` as any)
+              }
             >
               <Text style={styles.eventTitle}>{event.title}</Text>
               <Text style={styles.meta}>
@@ -79,4 +151,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   location: { fontSize: 14, color: C.text, fontWeight: "600" },
+  center: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    gap: 8,
+  },
 });

@@ -1,10 +1,11 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,12 +21,16 @@ import {
   ImageChip,
 } from "../../components/teacher/ImageSectionCard";
 import { VideoEmbed } from "../../components/parent/VideoEmbed";
-import { MediaKind } from "../../data/sharedContent";
 import { ParentColors as C } from "../../constants/parentTheme";
 import { useSelectedChild } from "../../contexts/SelectedChildContext";
-import { useSharedContent } from "../../contexts/SharedContentContext";
+import { useEventsContext } from "../../contexts/EventsContext";
 import { useChat } from "../../contexts/ChatContext";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useMediaContext } from "@/contexts/MediaContext";
+import { useTodayLessonForClass } from "@/hooks/useTodayLessonForClass";
+import { useChildAttendance } from "@/hooks/useChildAttendance";
+import { MediaKind } from "@/types/mediaTypes";
+import { colorForKind } from "@/utils/mediaColors";
 
 const IMAGES = {
   welcome: require("../../../assets/images/teacher-home/teacher-home-welcome.png"),
@@ -52,41 +57,91 @@ const MEDIA_KIND_KEYS: Record<MediaKind, string> = {
 
 export default function ParentHome() {
   const { t } = useLanguage();
-  const { childrenList, selectedChild, selectedId, setSelectedId, groupName } =
-    useSelectedChild();
+
   const {
-    publishedMedia,
-    publishedEvents,
-    todayCourse,
-    parentNotices,
-    getAttendanceSummary,
-  } = useSharedContent();
+    childrenList,
+    selectedChild,
+    selectedId,
+    setSelectedId,
+    groupName,
+    isLoading: childrenLoading,
+  } = useSelectedChild();
+
+  const { events } = useEventsContext();
+  const { media } = useMediaContext();
   const { conversations } = useChat();
+
+  const { lesson: course } = useTodayLessonForClass(
+    selectedChild?.classroomId ?? undefined
+  );
+
+  const { summary: attendance } = useChildAttendance(selectedChild?.id);
+
+  const publishedMedia = useMemo(
+    () => (media ?? []).filter((m) => m.published),
+    [media]
+  );
+  const publishedEvents = useMemo(
+    () => (events ?? []).filter((e) => e.published),
+    [events]
+  );
 
   const mediaKindLabel = useCallback(
     (kind: MediaKind) => t(MEDIA_KIND_KEYS[kind]),
     [t]
   );
 
-  const unreadNotifs = parentNotices.filter((n) => n.unread).length;
   const unreadChat = conversations.reduce(
-    (sum, c) => sum + c.unreadForParent,
+    (sum, c) => sum + (c.unreadForParent ?? 0),
     0
   );
-  const attendance = getAttendanceSummary(selectedId);
+
   const upcomingEvent =
-    publishedEvents.find((e) => e.status !== "past") ?? publishedEvents[0];
-  const course = todayCourse;
+    publishedEvents.find((e) => e.status !== "completed") ?? publishedEvents[0];
+
+  const presentCount = attendance?.present ?? 0;
+  const absentCount = attendance?.absent ?? 0;
+  const totalRecorded = presentCount + absentCount;
+  const attendancePercent =
+    totalRecorded > 0
+      ? Math.round((presentCount / totalRecorded) * 100)
+      : 0;
+      
+
+  // ---- Loading guard ---------------------------------------------
+  if (childrenLoading && !selectedChild) {
+    return (
+      <Screen>
+        <View style={styles.center}>
+          <ActivityIndicator color={C.secondary} />
+          <Text style={styles.loadingText}>{t("common.loading")}</Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  // ---- No children linked ----------------------------------------
+  if (!selectedChild) {
+    return (
+      <Screen>
+        <SoftCard>
+          <Text style={styles.emptyText}>{t("parent.noChildren")}</Text>
+        </SoftCard>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
+      {/* ---------- Welcome banner ---------- */}
       <ImageSectionCard image={IMAGES.welcome} height={168}>
         <View style={styles.welcomeRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.kicker}>{t("parent.portal")}</Text>
             <Text style={styles.hello}>{t("parent.hiParent")}</Text>
             <Text style={styles.group}>
-              {selectedChild.name} · {groupName}
+              {selectedChild.name}
+              {groupName ? ` · ${groupName}` : ""}
             </Text>
           </View>
           <TouchableOpacity
@@ -94,7 +149,6 @@ export default function ParentHome() {
             onPress={() => router.push("/parent/notifications")}
           >
             <Ionicons name="notifications-outline" size={20} color="#fff" />
-            {unreadNotifs > 0 ? <View style={styles.dot} /> : null}
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconBtn}
@@ -112,27 +166,31 @@ export default function ParentHome() {
         </View>
       </ImageSectionCard>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.childScroll}
-      >
-        {childrenList.map((child) => (
-          <ChildChip
-            key={child.id}
-            child={child}
-            active={child.id === selectedId}
-            onPress={() => setSelectedId(child.id)}
-          />
-        ))}
-      </ScrollView>
+      {/* ---------- Child switcher ---------- */}
+      {childrenList.length > 1 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.childScroll}
+        >
+          {childrenList.map((child) => (
+            <ChildChip
+              key={child.id}
+              child={child}
+              active={child.id === selectedId}
+              onPress={() => setSelectedId(child.id)}
+            />
+          ))}
+        </ScrollView>
+      ) : null}
 
+      {/* ---------- This week's course ---------- */}
       {course ? (
         <>
           <SectionLabel title={t("parent.thisWeekCourse")} />
           <ImageSectionCard image={IMAGES.lesson} height={280}>
             <ImageChip
-              label={`Week ${course.week} · ${course.category}`}
+              label={`Week ${course.week} · ${course.category ?? ""}`}
               tone="accent"
             />
             <Text style={styles.title}>{course.title}</Text>
@@ -154,6 +212,7 @@ export default function ParentHome() {
         </>
       ) : null}
 
+      {/* ---------- Media sections ---------- */}
       {HOME_MEDIA_ORDER.map((kind) => {
         const featured = publishedMedia.find((m) => m.kind === kind);
         if (!featured) return null;
@@ -164,7 +223,10 @@ export default function ParentHome() {
             <SoftCard style={styles.mediaCard}>
               <View style={styles.mediaHeader}>
                 <View
-                  style={[styles.kindDot, { backgroundColor: featured.color }]}
+                  style={[
+                    styles.kindDot,
+                    { backgroundColor: colorForKind(featured.kind) },
+                  ]}
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.mediaTitle}>{featured.title}</Text>
@@ -175,8 +237,8 @@ export default function ParentHome() {
               </View>
               <VideoEmbed
                 youtubeId={featured.youtubeId}
-                localUri={featured.localUri}
-                coverUri={featured.coverUri}
+                fileUri={featured.fileUri ?? undefined}
+                coverUri={featured.coverUri ?? undefined}
                 title={featured.title}
                 kind={featured.kind}
                 height={180}
@@ -196,18 +258,19 @@ export default function ParentHome() {
         );
       })}
 
+      {/* ---------- Attendance ---------- */}
       <SectionLabel title={t("parent.childAttendance")} />
       <ImageSectionCard image={IMAGES.students} height={230}>
-        <ImageChip label={`${selectedChild.name}`} />
-        <Text style={styles.title}>{selectedChild.attendance}% present</Text>
+        <ImageChip label={selectedChild.name} />
+        <Text style={styles.title}>{attendancePercent}% present</Text>
         <View style={styles.attRow}>
           <Text style={styles.stat}>
-            <Text style={styles.statStrong}>{attendance.present}</Text>{" "}
+            <Text style={styles.statStrong}>{presentCount}</Text>{" "}
             {t("parent.present")}
           </Text>
           <Text style={styles.statDot}>·</Text>
           <Text style={styles.stat}>
-            <Text style={styles.statStrong}>{attendance.absent}</Text>{" "}
+            <Text style={styles.statStrong}>{absentCount}</Text>{" "}
             {t("parent.absent")}
           </Text>
         </View>
@@ -221,6 +284,7 @@ export default function ParentHome() {
         </TouchableOpacity>
       </ImageSectionCard>
 
+      {/* ---------- Upcoming event ---------- */}
       {upcomingEvent ? (
         <>
           <SectionLabel title={t("parent.upcomingEvent")} />
@@ -240,12 +304,13 @@ export default function ParentHome() {
         </>
       ) : null}
 
+      {/* ---------- Chat shortcut ---------- */}
       <SectionLabel title={t("parent.chatTeacher")} />
       <SoftCard
         style={styles.chatCard}
         onPress={() => router.push("/parent/messages")}
       >
-        <AvatarBubble initials="HB" color={C.secondary} size={48} />
+        <AvatarBubble initials="T" color={C.secondary} size={48} />
         <View style={{ flex: 1 }}>
           <Text style={styles.chatTitle}>{t("parent.messageTeacher")}</Text>
           <Text style={styles.chatSub}>{t("parent.askPickup")}</Text>
@@ -376,4 +441,21 @@ const styles = StyleSheet.create({
   },
   chatTitle: { fontSize: 16, fontWeight: "700", color: C.text },
   chatSub: { marginTop: 3, fontSize: 13, color: C.muted },
+
+  // ---- new, for guards ----
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    gap: 10,
+  },
+  loadingText: { color: C.muted, fontSize: 14 },
+  emptyText: {
+    textAlign: "center",
+    color: C.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    paddingVertical: 20,
+  },
 });
