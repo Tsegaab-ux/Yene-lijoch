@@ -9,15 +9,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { LanguageToggle } from "../../components/LanguageToggle";
+import { StepDots } from "../../components/auth/StepDots";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { notify, notifyConfirm } from "../../utils/notify";
 
 type Role = "parent" | "teacher" | "admin";
-type Relationship = "father" | "mother" | "guardian";
 
 const ROLE_META: Record<
   Role,
@@ -29,17 +29,6 @@ const ROLE_META: Record<
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-function parseStudentIds(raw: string): number[] | null {
-  const parts = raw
-    .split(/[, ]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (parts.length === 0) return null;
-  const ids = parts.map((p) => Number(p));
-  if (ids.some((n) => !Number.isInteger(n) || n <= 0)) return null;
-  return ids;
-}
 
 export default function Signup() {
   const { t } = useLanguage();
@@ -53,7 +42,6 @@ export default function Signup() {
   const meta = ROLE_META[role];
   const roleLabel = t(`role.${role}`);
 
-  // Shared
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -61,66 +49,53 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Parent (POST /parents/)
   const [contact, setContact] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [address, setAddress] = useState("");
-  const [organization, setOrganization] = useState("");
-  const [studentIds, setStudentIds] = useState("");
-  const [relationship, setRelationship] = useState<Relationship>("mother");
-
-  // Teacher (POST /teachers/)
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-
-  // Admin (demo form)
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [formError, setFormError] = useState("");
 
-  const handleSignup = () => {
+  const goToOrganization = () => {
+    router.push(`/signup-organization?role=${role}`);
+  };
+
+  const handleContinue = () => {
+    setFormError("");
+
     if (password !== confirmPassword) {
-      Alert.alert(t("common.error"), t("signup.passwordMismatch"));
+      const msg = t("signup.passwordMismatch");
+      setFormError(msg);
+      notify(t("common.error"), msg);
       return;
     }
     if (password.length < 6) {
-      Alert.alert(t("common.error"), t("signup.passwordShort"));
+      const msg = t("signup.passwordShort");
+      setFormError(msg);
+      notify(t("common.error"), msg);
       return;
     }
 
     if (role === "parent") {
       if (!username.trim() || !email.trim() || !password) {
-        Alert.alert(t("common.error"), t("signup.missing"));
+        const msg = t("signup.missing");
+        setFormError(msg);
+        notify(t("common.error"), msg);
         return;
       }
       if (dateOfBirth.trim() && !DATE_RE.test(dateOfBirth.trim())) {
-        Alert.alert(t("common.error"), t("signup.invalidDate"));
+        const msg = t("signup.invalidDate");
+        setFormError(msg);
+        notify(t("common.error"), msg);
         return;
       }
-      const orgId = Number(organization.trim());
-      if (!organization.trim() || !Number.isInteger(orgId) || orgId <= 0) {
-        Alert.alert(t("common.error"), t("signup.invalidOrganization"));
-        return;
-      }
-      const students = parseStudentIds(studentIds);
-      if (!students) {
-        Alert.alert(t("common.error"), t("signup.invalidStudents"));
-        return;
-      }
-      // Payload shape matches Parent API — not sent yet (no backend)
-      void {
-        username: username.trim(),
-        email: email.trim(),
-        password,
-        contact: contact.trim() || undefined,
-        date_of_birth: dateOfBirth.trim() || undefined,
-        address: address.trim() || undefined,
-        parent_details: {
-          organization: orgId,
-          student: students,
-          relationship,
-        },
-      };
-    } else if (role === "teacher") {
+      goToOrganization();
+      return;
+    }
+
+    if (role === "teacher") {
       if (
         !username.trim() ||
         !email.trim() ||
@@ -128,35 +103,28 @@ export default function Signup() {
         !lastName.trim() ||
         !password
       ) {
-        Alert.alert(t("common.error"), t("signup.missing"));
+        const msg = t("signup.missing");
+        setFormError(msg);
+        notify(t("common.error"), msg);
         return;
       }
-      const orgId = Number(organization.trim());
-      if (!organization.trim() || !Number.isInteger(orgId) || orgId <= 0) {
-        Alert.alert(t("common.error"), t("signup.invalidOrganization"));
-        return;
-      }
-      void {
-        username: username.trim(),
-        email: email.trim(),
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        password,
-        teacher_details: { organization: orgId },
-      };
-    } else {
-      if (!fullName || !email || !phone || !password || !confirmPassword) {
-        Alert.alert(t("common.error"), t("signup.missing"));
-        return;
-      }
+      goToOrganization();
+      return;
     }
 
-    Alert.alert(t("common.success"), t("signup.success", { role: roleLabel }), [
-      {
-        text: t("common.continue"),
-        onPress: () => router.replace(meta.home),
-      },
-    ]);
+    if (!fullName || !email || !phone || !password) {
+      const msg = t("signup.missing");
+      setFormError(msg);
+      notify(t("common.error"), msg);
+      return;
+    }
+
+    notifyConfirm(
+      t("common.success"),
+      t("signup.success", { role: roleLabel }),
+      t("common.continue"),
+      () => router.replace(meta.home)
+    );
   };
 
   return (
@@ -181,6 +149,8 @@ export default function Signup() {
             <Ionicons name="arrow-back" size={24} color="#2C2A26" />
           </TouchableOpacity>
 
+          <StepDots active={1} total={role === "admin" ? 1 : 3} color={meta.color} />
+
           <View style={[styles.roleChip, { backgroundColor: `${meta.color}18` }]}>
             <Text style={[styles.roleChipText, { color: meta.color }]}>
               {t("signup.signingAs", { role: roleLabel })}
@@ -194,7 +164,11 @@ export default function Signup() {
 
           <View style={styles.header}>
             <Text style={styles.title}>{t("signup.title")}</Text>
-            <Text style={styles.subtitle}>{t("signup.subtitle")}</Text>
+            <Text style={styles.subtitle}>
+              {role === "admin"
+                ? t("signup.subtitle")
+                : t("signup.accountStepSub")}
+            </Text>
           </View>
 
           {role === "parent" && (
@@ -239,70 +213,6 @@ export default function Signup() {
                 value={address}
                 onChangeText={setAddress}
               />
-              <Field
-                label={t("signup.organization")}
-                icon="business-outline"
-                placeholder={t("signup.organizationPlaceholder")}
-                value={organization}
-                onChangeText={setOrganization}
-                keyboardType="number-pad"
-              />
-              <Field
-                label={t("signup.studentIds")}
-                icon="people-outline"
-                placeholder={t("signup.studentIdsPlaceholder")}
-                value={studentIds}
-                onChangeText={setStudentIds}
-                autoCapitalize="none"
-              />
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>{t("signup.relationship")}</Text>
-                <View style={styles.chipRow}>
-                  {(
-                    [
-                      ["father", t("signup.father")],
-                      ["mother", t("signup.mother")],
-                      ["guardian", t("signup.guardian")],
-                    ] as const
-                  ).map(([value, label]) => {
-                    const active = relationship === value;
-                    return (
-                      <TouchableOpacity
-                        key={value}
-                        style={[
-                          styles.relChip,
-                          active && {
-                            backgroundColor: meta.color,
-                            borderColor: meta.color,
-                          },
-                        ]}
-                        onPress={() => setRelationship(value)}
-                        activeOpacity={0.85}
-                      >
-                        <Text
-                          style={[
-                            styles.relChipText,
-                            active && styles.relChipTextActive,
-                          ]}
-                        >
-                          {label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-              <PasswordFields
-                password={password}
-                setPassword={setPassword}
-                confirmPassword={confirmPassword}
-                setConfirmPassword={setConfirmPassword}
-                showPassword={showPassword}
-                setShowPassword={setShowPassword}
-                showConfirmPassword={showConfirmPassword}
-                setShowConfirmPassword={setShowConfirmPassword}
-                t={t}
-              />
             </>
           )}
 
@@ -341,25 +251,6 @@ export default function Signup() {
                 onChangeText={setLastName}
                 autoCapitalize="words"
               />
-              <Field
-                label={t("signup.organization")}
-                icon="business-outline"
-                placeholder={t("signup.organizationPlaceholder")}
-                value={organization}
-                onChangeText={setOrganization}
-                keyboardType="number-pad"
-              />
-              <PasswordFields
-                password={password}
-                setPassword={setPassword}
-                confirmPassword={confirmPassword}
-                setConfirmPassword={setConfirmPassword}
-                showPassword={showPassword}
-                setShowPassword={setShowPassword}
-                showConfirmPassword={showConfirmPassword}
-                setShowConfirmPassword={setShowConfirmPassword}
-                t={t}
-              />
             </>
           )}
 
@@ -390,26 +281,31 @@ export default function Signup() {
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
               />
-              <PasswordFields
-                password={password}
-                setPassword={setPassword}
-                confirmPassword={confirmPassword}
-                setConfirmPassword={setConfirmPassword}
-                showPassword={showPassword}
-                setShowPassword={setShowPassword}
-                showConfirmPassword={showConfirmPassword}
-                setShowConfirmPassword={setShowConfirmPassword}
-                t={t}
-              />
             </>
           )}
 
+          <PasswordFields
+            password={password}
+            setPassword={setPassword}
+            confirmPassword={confirmPassword}
+            setConfirmPassword={setConfirmPassword}
+            showPassword={showPassword}
+            setShowPassword={setShowPassword}
+            showConfirmPassword={showConfirmPassword}
+            setShowConfirmPassword={setShowConfirmPassword}
+            t={t}
+          />
+
+          {!!formError && <Text style={styles.formError}>{formError}</Text>}
+
           <TouchableOpacity
             style={[styles.signupButton, { backgroundColor: meta.color }]}
-            onPress={handleSignup}
+            onPress={handleContinue}
             activeOpacity={0.8}
           >
-            <Text style={styles.signupButtonText}>{t("signup.create")}</Text>
+            <Text style={styles.signupButtonText}>
+              {role === "admin" ? t("signup.create") : t("common.continue")}
+            </Text>
             <Ionicons name="arrow-forward" size={20} color="#fff" />
           </TouchableOpacity>
 
@@ -571,7 +467,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 18,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: "#E5DFD5",
   },
@@ -636,26 +532,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#2C2A26",
   },
-  chipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  relChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#E5DFD5",
-    backgroundColor: "#FFFFFF",
-  },
-  relChipText: {
+  formError: {
+    color: "#B42318",
     fontSize: 13,
-    fontWeight: "700",
-    color: "#2C2A26",
-  },
-  relChipTextActive: {
-    color: "#FFFFFF",
+    fontWeight: "600",
+    marginBottom: 8,
+    textAlign: "center",
   },
   signupButton: {
     height: 56,
