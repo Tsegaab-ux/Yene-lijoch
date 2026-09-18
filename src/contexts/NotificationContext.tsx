@@ -360,16 +360,34 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   // ------------------------------------------------------------------
   // Tap → deep link — native only
   // ------------------------------------------------------------------
-  const handleDeepLink = useCallback(
-    (data: Record<string, unknown> | undefined) => {
-      if (!data) return;
-      if (data.screen === "chat" && data.conversation_id) {
-        const role = typeof data.role === "string" ? data.role : "parent";
-        router.push(`/${role}/messages/${data.conversation_id}` as any);
-      }
-    },
-    []
-  );
+  const ALLOWED_ROLES = ["parent", "teacher", "admin"] as const;
+  type AppRole = (typeof ALLOWED_ROLES)[number];
+
+  const pickRole = (raw: unknown): AppRole =>
+    typeof raw === "string" && (ALLOWED_ROLES as readonly string[]).includes(raw)
+      ? (raw as AppRole)
+      : "parent";
+
+  const handleDeepLink = useCallback((data: Record<string, unknown> | undefined) => {
+    if (!data) return;
+
+    if (data.screen === "chat" && data.conversation_id) {
+      router.push(`/${pickRole(data.role)}/messages/${data.conversation_id}` as any);
+      return;
+    }
+    if (data.screen === "media" && data.media_id) {
+      router.push(`/${pickRole(data.role)}/media/${data.media_id}` as any);
+      return;
+    }
+    if (data.screen === "lesson" && data.lesson_id) {
+      router.push(`/${pickRole(data.role)}/courses/${data.lesson_id}` as any);
+      return;
+    }
+    if (data.screen === "event" && data.event_id) {
+      router.push(`/${pickRole(data.role)}/events/${data.event_id}` as any);
+      return;
+    }
+  }, []);
 
   useEffect(() => {
     if (!IS_NATIVE || !Notifications) return;
