@@ -50,64 +50,57 @@ if (typeof window !== 'undefined') {
     failedQueue = [];
   };
 
+  const AUTH_PATHS = ["/login/", "/register/", "/refresh/"];
+
   clientApi.interceptors.response.use(
     (response) => response,
     async (error) => {
       const originalRequest = error.config;
+      const status = error.response?.status;
+      const isAuthCall = AUTH_PATHS.some((p) => originalRequest?.url?.includes(p));
 
-      // If unauthorized and not already retrying
-      if (error.response?.status === 401 && !originalRequest._retry) {
-        if (isRefreshing) {
-          return new Promise((resolve, reject) => {
-            failedQueue.push({ resolve, reject });
-          })
-            .then((token) => {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-              return clientApi(originalRequest);
-            })
-            .catch((err) => Promise.reject(err));
-        }
-
-        originalRequest._retry = true;
-        isRefreshing = true;
-
-        try {
-          const refreshToken = localStorage.getItem("refresh");
-          if (!refreshToken) {
-            throw new Error("No refresh token");
-          }
-
-          const response = await axios.post(`${API_BASE}/refresh/`, {
-            refresh: refreshToken,
-          });
-
-          const { access } = response.data;
-          localStorage.setItem("access", access);
-
-          // Process queue
-          processQueue(null, access);
-
-          // Retry original request
-          originalRequest.headers.Authorization = `Bearer ${access}`;
-          return clientApi(originalRequest);
-        } catch (refreshError) {
-          // Refresh failed - clear tokens and redirect to login
-          localStorage.removeItem("access");
-          localStorage.removeItem("refresh");
-          processQueue(refreshError, null);
-          
-          // Redirect to login
-          if (typeof window !== 'undefined') {
-            window.location.href = "/login";
-          }
-          
-          return Promise.reject(refreshError);
-        } finally {
-          isRefreshing = false;
-        }
+      if (status !== 401 || !originalRequest || originalRequest._retry || isAuthCall) {
+        return Promise.reject(error);
       }
 
-      return Promise.reject(error);
+      const refreshToken = localStorage.getItem("refresh");
+      if (!refreshToken) {
+        // Not logged in: report the original 401. No throw, no redirect.
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return clientApi(originalRequest);
+          });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const { data } = await axios.post(`${API_BASE}/refresh/`, { refresh: refreshToken });
+        localStorage.setItem("access", data.access);
+        if (data.refresh) localStorage.setItem("refresh", data.refresh); // rotated tokens
+        processQueue(null, data.access);
+        originalRequest.headers.Authorization = `Bearer ${data.access}`;
+        return clientApi(originalRequest);
+      } catch (refreshError) {
+        localStorage.removeItem("access");
+        localStorage.removeItem("refresh");
+        processQueue(refreshError, null);
+        // Only redirect when a real session died, and never if already on /login
+        if (window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
   );
 }

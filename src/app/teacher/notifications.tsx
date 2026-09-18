@@ -59,6 +59,8 @@ export default function NotificationsScreen() {
     );
   }, [filter, notifications]);
 
+  console.log(notifications)
+
   // ------------------------------------------------------------------
   // Tap handler: mark read + navigate based on category.
   // ------------------------------------------------------------------

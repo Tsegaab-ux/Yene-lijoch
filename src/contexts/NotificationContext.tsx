@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -29,14 +30,27 @@ import {
   markNotificationRead,
   registerPushToken,
 } from "../services/notificationsApi";
+import { useAuthContext } from "./AuthContext";
 
 const IS_NATIVE = Platform.OS === "ios" || Platform.OS === "android";
+
+// Base URL for the WebSocket. Override via EXPO_PUBLIC_WS_URL in .env.
+// Falls back to the same host as the API on web, and to localhost on native.
+const WS_BASE =
+  process.env.EXPO_PUBLIC_WS_URL?.replace(/\/+$/, "") ??
+  (Platform.OS === "web" ? "ws://127.0.0.1:8000" : "ws://127.0.0.1:8000");
+
+// Reconnect backoff bounds (ms).
+const RECONNECT_MIN_MS = 1_000;
+const RECONNECT_MAX_MS = 30_000;
 
 type NotificationContextValue = {
   notifications: AppNotification[];
   unreadCount: number;
   loading: boolean;
   error: string | null;
+  /** true once the notification WebSocket has completed its handshake. */
+  wsConnected: boolean;
   refresh: () => Promise<void>;
   markRead: (id: number) => Promise<void>;
   markAllRead: () => Promise<void>;
@@ -49,7 +63,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
+
   const [appState, setAppState] = useState(AppState.currentState);
+  const { isAuthenticated, isLoading, accessToken } = useAuthContext();
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastHandledNotificationId = useRef<string | null>(null);
@@ -57,6 +74,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     notifications: AppNotification[];
     unread: number;
   } | null>(null);
+
+  // WebSocket bookkeeping — kept in refs so we don't re-render on every
+  // connection attempt and don't retrigger the effect on state changes.
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const intentionallyClosedRef = useRef(false);
 
   // ------------------------------------------------------------------
   // Refresh — works on all platforms
@@ -90,8 +114,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setNotifications((prev) =>
         prev.map((n) => {
           if (n.id !== id) return n;
-          if (!n.read) wasUnread = true;
-          return { ...n, read: true };
+          if (!n.is_read) wasUnread = true;
+          return { ...n, is_read: true };
         })
       );
 
@@ -112,7 +136,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const markAllRead = useCallback(async () => {
     rollbackRef.current = { notifications, unread: unreadCount };
 
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setUnreadCount(0);
 
     try {
@@ -133,34 +157,23 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   // Push token registration — native only
   // ------------------------------------------------------------------
   useEffect(() => {
-    if (!IS_NATIVE || !Notifications) return;
+    if (isLoading || !isAuthenticated) return;
 
-    let tokenSub: { remove: () => void } | null = null;
-
-    (async () => {
-      const token = await registerForPushNotificationsAsync();
-      if (!token) return;
-
+    const registerPushNotifications = async () => {
       try {
-        await registerPushToken(token, Platform.OS as "ios" | "android");
-      } catch (err) {
-        console.warn("Failed to register push token with backend:", err);
+        const token = await registerForPushNotificationsAsync();
+        if (!token) return;
+        await registerPushToken(
+          token,
+          Platform.OS === "ios" ? "ios" : "android"
+        );
+      } catch (error) {
+        console.error("Push notification registration failed:", error);
       }
-    })();
-
-    tokenSub = Notifications.addPushTokenListener((newToken: any) => {
-      registerPushToken(
-        newToken.data,
-        Platform.OS as "ios" | "android"
-      ).catch((err) =>
-        console.warn("Failed to re-register push token:", err)
-      );
-    });
-
-    return () => {
-      tokenSub?.remove();
     };
-  }, []);
+
+    registerPushNotifications();
+  }, [isLoading, isAuthenticated]);
 
   // ------------------------------------------------------------------
   // App state listener — works on all platforms
@@ -171,18 +184,166 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, []);
 
   // ------------------------------------------------------------------
-  // Polling — works on all platforms
+  // Polling — safety net while the WS is down. When the WS is connected
+  // we back off to a slow poll (5 min) just to reconcile missed events.
   // ------------------------------------------------------------------
   useEffect(() => {
-    if (appState !== "active") return;
+    if (appState !== "active" || !isAuthenticated) return;
 
+    // Immediate refresh on becoming active.
     refresh();
-    pollRef.current = setInterval(refresh, 60_000);
+
+    const intervalMs = wsConnected ? 5 * 60_000 : 60_000;
+    pollRef.current = setInterval(refresh, intervalMs);
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
     };
-  }, [appState, refresh]);
+  }, [appState, refresh, wsConnected, isAuthenticated]);
+
+  // ------------------------------------------------------------------
+  // WebSocket — real-time notification delivery.
+  // Only active when authenticated and we have a token.
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || !accessToken) return;
+    if (Platform.OS === "web" && typeof WebSocket === "undefined") return;
+
+    intentionallyClosedRef.current = false;
+
+    const buildUrl = () =>
+      `${WS_BASE}/ws/notifications/?token=${encodeURIComponent(accessToken)}`;
+
+    const scheduleReconnect = () => {
+      if (intentionallyClosedRef.current) return;
+      const attempt = reconnectAttemptsRef.current++;
+      const delay = Math.min(
+        RECONNECT_MIN_MS * 2 ** attempt,
+        RECONNECT_MAX_MS
+      );
+      // Small jitter so many clients don't reconnect in lockstep.
+      const jitter = Math.random() * 500;
+      reconnectTimerRef.current = setTimeout(connect, delay + jitter);
+    };
+
+    const connect = () => {
+      if (intentionallyClosedRef.current) return;
+
+      let ws: WebSocket;
+      try {
+        ws = new WebSocket(buildUrl());
+      } catch (err) {
+        console.warn("[notif ws] construction failed", err);
+        scheduleReconnect();
+        return;
+      }
+
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        // Wait for the server's `connection_established` frame before
+        // declaring ourselves connected — the handshake alone isn't enough,
+        // the consumer may still reject us (auth, rate limit, etc.).
+        console.log("[notif ws] handshake open");
+      };
+
+      ws.onmessage = (e) => {
+        let msg: any;
+        try {
+          msg = JSON.parse(typeof e.data === "string" ? e.data : "");
+        } catch {
+          return;
+        }
+
+        if (msg?.type === "connection_established") {
+          console.log("[notif ws] ready for user", msg.user_id);
+          reconnectAttemptsRef.current = 0;
+          setWsConnected(true);
+          return;
+        }
+
+        if (msg?.type === "notification") {
+          const payload = (msg.data ?? {}) as Record<string, unknown>;
+          console.log("[notif ws] notification", payload);
+
+          // Optimistic insert so the UI updates instantly. The next
+          // `refresh()` (from the slow poll or a manual pull) will
+          // reconcile with the canonical server list.
+          const incoming: AppNotification | null =
+            payload && typeof payload === "object"
+              ? ({
+                  id: Number((payload as any).id) || Date.now(),
+                  notification_type:
+                    String(
+                      (payload as any).notification_type ??
+                        (payload as any).type ??
+                        "new_chat_message"
+                    ),
+                  title: String((payload as any).title ?? "New message"),
+                  body: String(
+                    (payload as any).body ?? (payload as any).message ?? ""
+                  ),
+                  data: (payload as any).data ?? {},
+                  is_read: false,
+                  created_at: new Date().toISOString(),
+                  category: String((payload as any).category ?? "chat"),
+                  actor_id:
+                    (payload as any).actor_id != null
+                      ? Number((payload as any).actor_id)
+                      : null,
+                } satisfies AppNotification)
+              : null;
+
+          if (incoming) {
+            setNotifications((prev) => {
+              if (prev.some((n) => n.id === incoming.id)) return prev;
+              return [incoming, ...prev];
+            });
+            if (!incoming.is_read) {
+              setUnreadCount((prev) => prev + 1);
+            }
+          } else {
+            // Payload wasn't shaped like a notification — fall back to a
+            // REST refresh so we don't miss anything.
+            refresh();
+          }
+        }
+      };
+
+      ws.onerror = (err) => {
+        console.warn("[notif ws] error", err);
+      };
+
+      ws.onclose = (ev) => {
+        console.log("[notif ws] closed", ev.code, ev.reason);
+        wsRef.current = null;
+        setWsConnected(false);
+        if (!intentionallyClosedRef.current) {
+          scheduleReconnect();
+        }
+      };
+    };
+
+    connect();
+
+    return () => {
+      intentionallyClosedRef.current = true;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      if (wsRef.current) {
+        try {
+          wsRef.current.close(1000, "provider unmount");
+        } catch {
+          /* ignore */
+        }
+        wsRef.current = null;
+      }
+      setWsConnected(false);
+    };
+  }, [isAuthenticated, isLoading, accessToken, refresh]);
 
   // ------------------------------------------------------------------
   // Foreground push → refresh — native only
@@ -234,25 +395,37 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         handleDeepLink(data);
       })
       .catch((err: unknown) => {
-        // Silently ignore — some platforms throw if no response exists.
         console.warn("getLastNotificationResponseAsync failed:", err);
       });
 
     return unsubscribe;
   }, [handleDeepLink]);
 
+  const value = useMemo<NotificationContextValue>(
+    () => ({
+      notifications,
+      unreadCount,
+      loading,
+      error,
+      wsConnected,
+      refresh,
+      markRead,
+      markAllRead,
+    }),
+    [
+      notifications,
+      unreadCount,
+      loading,
+      error,
+      wsConnected,
+      refresh,
+      markRead,
+      markAllRead,
+    ]
+  );
+
   return (
-    <NotificationContext.Provider
-      value={{
-        notifications,
-        unreadCount,
-        loading,
-        error,
-        refresh,
-        markRead,
-        markAllRead,
-      }}
-    >
+    <NotificationContext.Provider value={value}>
       {children}
     </NotificationContext.Provider>
   );

@@ -21,6 +21,49 @@ type ChildLike = {
   initials: string;
 };
 
+type IconButtonProps = {
+  name: React.ComponentProps<typeof Ionicons>["name"];
+  onPress: () => void;
+  badgeCount?: number;
+  showDot?: boolean;
+  accessibilityLabel: string;
+};
+
+export function IconButton({
+  name,
+  onPress,
+  badgeCount = 0,
+  showDot = false,
+  accessibilityLabel,
+}: IconButtonProps) {
+  const showBadge = badgeCount > 0;
+  const label = showBadge
+    ? `${accessibilityLabel}, ${badgeCount} unread`
+    : accessibilityLabel;
+
+  return (
+    <TouchableOpacity
+      style={styles.iconBtn}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      <Ionicons name={name} size={20} color="#fff" />
+
+      {showBadge ? (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText} numberOfLines={1}>
+            {badgeCount > 99 ? "99+" : badgeCount}
+          </Text>
+        </View>
+      ) : showDot ? (
+        <View style={styles.dot} />
+      ) : null}
+    </TouchableOpacity>
+  );
+}
+
 export function Screen({
   children,
   padded = true,
@@ -294,6 +337,23 @@ export function MenuRow({
 }
 
 const styles = StyleSheet.create({
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dot: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.secondary,
+  },
   safe: {
     flex: 1,
     backgroundColor: C.bg,

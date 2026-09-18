@@ -15,6 +15,7 @@ import {
   SoftCard,
   ChildChip,
   AvatarBubble,
+  IconButton,
 } from "../../components/parent/ui";
 import {
   ImageSectionCard,
@@ -145,25 +146,23 @@ export default function ParentHome() {
               {groupName ? ` · ${groupName}` : ""}
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.iconBtn}
+          <IconButton
+            name="notifications-outline"
             onPress={() => router.push("/parent/notifications")}
-          >
-            <Ionicons name="notifications-outline" size={20} color="#fff" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconBtn}
+            badgeCount={unreadCount}
+            accessibilityLabel={t("parent.notifications")}
+          />
+          <IconButton
+            name="chatbubble-ellipses-outline"
             onPress={() => router.push("/parent/messages")}
-          >
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
-            {unreadChat > 0 ? <View style={styles.dot} /> : null}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconBtn}
+            badgeCount={unreadChat}
+            accessibilityLabel={t("parent.messages")}
+          />
+          <IconButton
+            name="person-outline"
             onPress={() => router.push("/parent/profile")}
-          >
-            <Ionicons name="person-outline" size={20} color="#fff" />
-          </TouchableOpacity>
+            accessibilityLabel={t("parent.profile")}
+          />
         </View>
       </ImageSectionCard>
 

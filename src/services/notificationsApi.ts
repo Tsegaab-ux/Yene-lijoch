@@ -6,7 +6,7 @@ export type AppNotification = {
   title: string;
   body: string;
   data: Record<string, unknown>;
-  read: boolean;
+  is_read: boolean;
   created_at: string;
   category: string;
   actor_id: number | null;
@@ -33,7 +33,7 @@ export async function fetchNotifications(page = 1): Promise<Paginated<AppNotific
 }
 
 export async function fetchUnreadCount(): Promise<number> {
-  const { data } = await clientApi.get(`/notifications/unread-count/`);
+  const { data } = await clientApi.get(`/notifications/unread/`);
   return data.count;
 }
 

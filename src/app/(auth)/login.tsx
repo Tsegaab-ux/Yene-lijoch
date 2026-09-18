@@ -28,7 +28,6 @@ interface ErrorResponse {
 
 export default function LoginScreen(): React.ReactElement {
   const { t } = useLanguage();
-  const { navigateBasedOnRole, getDashboardRoute } = useRoleNavigation()
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -56,9 +55,7 @@ export default function LoginScreen(): React.ReactElement {
 
     try {
       // Use the login function from the auth hook
-      const user = await login(username, password, false);
-      navigateBasedOnRole(); // Navigate based on role
-      getDashboardRoute();
+      await login(username, password, false);
     } catch (error: unknown) {
       // Type guard to check if error has response property
       const err = error as ErrorResponse;

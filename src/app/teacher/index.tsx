@@ -14,6 +14,8 @@ import { useTeacher } from "../../contexts/TeacherContext";
 import { useTeacherCurriculumContext } from "../../contexts/TeacherCurriculumContext";
 import { useAttendance } from "../../hooks/useAttendance";
 import { useEventsContext } from "@/contexts/EventsContext";
+import { useNotifications } from "@/contexts/NotificationContext";
+import { IconButton } from "@/components/parent/ui";
 
 const IMAGES = {
   welcome: require("../../../assets/images/teacher-home/teacher-home-welcome.png"),
@@ -27,6 +29,7 @@ export default function TeacherHome() {
   const { t } = useLanguage();
   const { events } = useEventsContext();
   const { conversations } = useChat();
+  const { unreadCount } = useNotifications();
 
   const { teacher, primaryClass, isLoading: teacherLoading } = useTeacher();
   const { todayLesson, nextLesson, isLoading: curriculumLoading } =
@@ -59,13 +62,18 @@ export default function TeacherHome() {
               {teacher?.program ?? "Sunday School"} · {teacher?.group ?? ""}
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.iconBtn}
+          <IconButton
+            name="notifications-outline"
+            onPress={() => router.push("/teacher/notifications")}
+            badgeCount={unreadCount}
+            accessibilityLabel={t("parent.notifications")}
+          />
+          <IconButton
+            name="chatbubble-ellipses-outline"
             onPress={() => router.push("/teacher/messages")}
-          >
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
-            {unread > 0 ? <View style={styles.dot} /> : null}
-          </TouchableOpacity>
+            badgeCount={unread}
+            accessibilityLabel={t("parent.notifications")}
+          />
           <TouchableOpacity
             style={styles.iconBtn}
             onPress={() => router.push("/teacher/profile")}

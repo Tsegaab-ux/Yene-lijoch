@@ -1,12 +1,12 @@
 // hooks/useRoleNavigation.ts
 import { useRouter } from "expo-router";
 import { useAuth } from "./useAuth";
+import { User } from "@/types/authTypes";
 
 export const useRoleNavigation = () => {
   const router = useRouter();
-  const { user } = useAuth();
 
-  const navigateBasedOnRole = () => {
+  const navigateBasedOnRole = (user: User) => {
     const userRole = user?.role_name || '';
 
     switch (userRole.toLowerCase()) {
@@ -25,7 +25,7 @@ export const useRoleNavigation = () => {
     }
   };
 
-  const getDashboardRoute = (): string => {
+  const getDashboardRoute = (user: User): string => {
     const userRole = user?.role_name || '';
 
     switch (userRole.toLowerCase()) {
