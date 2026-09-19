@@ -12,7 +12,6 @@ import {
   TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { AdminColors as C } from "../../constants/adminTheme";
 
 export function Screen({

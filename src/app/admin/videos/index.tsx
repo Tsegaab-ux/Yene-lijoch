@@ -23,7 +23,7 @@ import { GalleryUploadPanel } from "../../../components/admin/GalleryUploadPanel
 import { AdminColors as C } from "../../../constants/adminTheme";
 import { useLanguage } from "../../../contexts/LanguageContext";
 import { useMediaContext } from "@/contexts/MediaContext";
-import { MediaKind } from "@/types/mediaTypes";
+import { MediaKind, MediaSource } from "@/types/mediaTypes";
 import { MEDIA_KIND_KEYS } from "@/utils/mediaLabels";
 import { colorForKind } from "@/utils/mediaColors";
 import { PickedFile } from "@/utils/mediaPicker";
@@ -37,7 +37,9 @@ const KINDS: MediaKind[] = [
   "picture",
 ];
 
-// Cross-platform confirm dialog.
+// ----------------------------------------------------------------------
+// Cross-platform confirm dialog
+// ----------------------------------------------------------------------
 function confirm(title: string, message: string): Promise<boolean> {
   if (Platform.OS === "web") {
     return Promise.resolve(window.confirm(`${title}\n\n${message}`));
@@ -48,6 +50,22 @@ function confirm(title: string, message: string): Promise<boolean> {
       { text: "Delete", style: "destructive", onPress: () => resolve(true) },
     ]);
   });
+}
+
+// ----------------------------------------------------------------------
+// Server error flattening — DRF returns { field: [msg] } / { detail }
+// ----------------------------------------------------------------------
+function extractServerMessage(err: any, fallback: string): string {
+  const data = err?.response?.data;
+  if (!data) return err?.message ?? fallback;
+  if (typeof data === "string") return data;
+  if (data.detail) {
+    return Array.isArray(data.detail)
+      ? data.detail.map(String).join(", ")
+      : String(data.detail);
+  }
+  const msgs = Object.values(data).flat().filter(Boolean).map(String);
+  return msgs.length ? msgs.join(", ") : fallback;
 }
 
 export default function AdminVideosScreen() {
@@ -68,6 +86,7 @@ export default function AdminVideosScreen() {
   const [duration, setDuration] = useState("");
   const [ageGroup, setAgeGroup] = useState("Ages 5–10");
   const [description, setDescription] = useState("");
+  const [published, setPublished] = useState(true);
   const [filter, setFilter] = useState<"All" | MediaKind>("All");
   const [mediaFile, setMediaFile] = useState<PickedFile | null>(null);
   const [coverFile, setCoverFile] = useState<PickedFile | null>(null);
@@ -83,7 +102,7 @@ export default function AdminVideosScreen() {
     const trimmed = value.trim();
     if (!trimmed) return "";
     const match = trimmed.match(
-      /(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{6,})/
+      /(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{6,})/,
     );
     return match?.[1] ?? trimmed;
   };
@@ -95,6 +114,9 @@ export default function AdminVideosScreen() {
     setDescription("");
     setMediaFile(null);
     setCoverFile(null);
+    // Deliberately sticky: kind / ageGroup / published keep their values
+    // between uploads. Uncomment to reset:
+    // setKind("video"); setAgeGroup("Ages 5–10"); setPublished(true);
   };
 
   // ------------------------------------------------------------------
@@ -106,23 +128,45 @@ export default function AdminVideosScreen() {
       return;
     }
 
-    const hasGallery = !!mediaFile || !!coverFile;
+    const hasMediaFile = !!mediaFile;
+    const hasCover = !!coverFile;
     const hasYoutube = !!youtubeId.trim();
 
-    if (!hasGallery && !hasYoutube && kind !== "picture") {
-      notify(t("common.error"), t("admin.uploadAddMedia"));
+    // A picture can be represented by its cover alone; anything else
+    // needs a real media file or a YouTube link.
+    const hasContent =
+      hasMediaFile || hasYoutube || (kind === "picture" && hasCover);
+
+    if (!hasContent) {
+      notify(
+        t("common.error"),
+        kind === "picture"
+          ? t("admin.uploadAddPicture")
+          : t("admin.uploadAddMedia"),
+      );
       return;
     }
 
-    if (kind === "picture" && !coverFile && !mediaFile && !hasYoutube) {
-      notify(t("common.error"), t("admin.uploadAddPicture"));
-      return;
-    }
-
-    // Auto-detect kind from gallery file when useful.
+    // Auto-detect kind from the picked file when useful.
     let finalKind = kind;
     if (mediaFile?.kind === "audio") finalKind = "song";
     if (mediaFile?.kind === "image" && kind === "video") finalKind = "picture";
+
+    // Source resolution: a media file is gallery; YouTube alone is
+    // youtube; cover-only is still gallery.
+    let source: MediaSource;
+    if (hasMediaFile) source = "gallery";
+    else if (hasYoutube) source = "youtube";
+    else source = "gallery";
+
+    if (__DEV__) {
+      console.log("[handleUpload] sending", {
+        mediaFile,
+        coverFile,
+        finalKind,
+        source,
+      });
+    }
 
     try {
       await createMedia({
@@ -133,27 +177,21 @@ export default function AdminVideosScreen() {
         ageGroup: ageGroup.trim() || "All ages",
         description:
           description.trim() ||
-          t("admin.uploadDefaultDescription", {
-            kind: kindLabel(finalKind),
-          }),
-        published: true,
-        source: hasGallery ? "gallery" : "youtube",
-        // The binary file — the API accepts these under `file` and `cover`.
-        file: mediaFile?.file ?? null,
-        cover: coverFile?.file ?? null,
-        fileName: mediaFile?.name || coverFile?.name,
-        mimeType: mediaFile?.mimeType || coverFile?.mimeType,
+          t("admin.uploadDefaultDescription", { kind: kindLabel(finalKind) }),
+        published,
+        source,
+        // PickedFile *is* the file — do not reach for `.file`.
+        file: mediaFile ? (mediaFile as unknown as File) : null,
+        cover: coverFile ? (coverFile as unknown as File) : null,
+        fileName: mediaFile?.name ?? undefined,
+        mimeType: mediaFile?.mimeType ?? undefined,
       });
 
       resetForm();
       setShowForm(false);
       notify(t("common.success"), t("admin.uploadSuccess"));
     } catch (err: any) {
-      const message =
-        err?.response?.data?.detail ??
-        err?.message ??
-        t("common.error");
-      notify(t("common.error"), String(message));
+      notify(t("common.error"), extractServerMessage(err, t("common.error")));
     }
   };
 
@@ -164,7 +202,7 @@ export default function AdminVideosScreen() {
     try {
       await toggleMediaPublish(id);
     } catch (err: any) {
-      notify(t("common.error"), String(err));
+      notify(t("common.error"), extractServerMessage(err, t("common.error")));
     }
   };
 
@@ -178,10 +216,13 @@ export default function AdminVideosScreen() {
       await deleteMedia(item.id);
       notify(t("common.success"), item.title);
     } catch (err: any) {
-      notify(t("common.error"), String(err));
+      notify(t("common.error"), extractServerMessage(err, t("common.error")));
     }
   };
 
+  // ------------------------------------------------------------------
+  // Render
+  // ------------------------------------------------------------------
   return (
     <Screen>
       <TopBar
@@ -279,9 +320,7 @@ export default function AdminVideosScreen() {
         ))}
       </ScrollView>
 
-      <SectionLabel
-        title={t("admin.itemsCount", { count: list.length })}
-      />
+      <SectionLabel title={t("admin.itemsCount", { count: list.length })} />
 
       {isLoading && list.length === 0 ? (
         <SoftCard style={styles.card}>
@@ -297,8 +336,7 @@ export default function AdminVideosScreen() {
 
       {list.map((item) => {
         const thumbUri =
-          item.coverUri ||
-          (item.kind === "picture" ? item.fileUri : null);
+          item.coverUri || (item.kind === "picture" ? item.fileUri : null);
 
         return (
           <SoftCard key={item.id} style={styles.card}>

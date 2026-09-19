@@ -20,6 +20,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   const {
     media,
     isLoading,
+    isSaving,
     error,
     fetchMedia,
     createMedia,
@@ -37,6 +38,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       media,
       isLoading,
       error,
+      isSaving,
       refetch: fetchMedia,
       createMedia,
       updateMedia,
@@ -46,6 +48,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     [
       media,
       isLoading,
+      isSaving,
       error,
       fetchMedia,
       createMedia,

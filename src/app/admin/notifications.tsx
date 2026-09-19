@@ -81,7 +81,8 @@ export default function AdminNotificationsScreen() {
           ? new Date(n.created_at).toLocaleString()
           : "",
         category: n.category ?? "other",
-        unread: !n.read,
+        notification_type: n.notification_type ?? "",
+        unread: !n.is_read,
       })),
     [notifications]
   );

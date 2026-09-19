@@ -13,7 +13,7 @@ import { ParentColors as C } from "../../constants/parentTheme";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useNotifications } from "../../contexts/NotificationContext";
 
-const FILTERS = ["All", "Attendance", "Events", "Courses", "Chat"] as const;
+const FILTERS = ["All", "Attendance", "Videos","Events", "Curriculum", "Chat"] as const;
 
 // Map backend categories to the icon set. Falls back to `system` for
 // any category the filter bar doesn't know about.
@@ -46,8 +46,9 @@ export default function NotificationsScreen() {
   const filterLabel = (item: (typeof FILTERS)[number]) => {
     if (item === "All") return t("parent.all");
     if (item === "Attendance") return t("tabs.attendance");
+    if (item === "Videos") return t("tabs.videos");
     if (item === "Events") return t("tabs.events");
-    if (item === "Courses") return t("tabs.courses");
+    if (item === "Curriculum") return t("tabs.curriculum");
     if (item === "Chat") return t("tabs.messages");
     return item;
   };
@@ -81,7 +82,7 @@ export default function NotificationsScreen() {
     } else if (cat === "events") {
       router.push("/parent/events" as any);
     } else if (cat === "courses") {
-      router.push("/parent/courses" as any);
+      router.push("/parent/curriculum" as any);
     }
     // Unknown categories: just mark read, don't navigate.
   };
