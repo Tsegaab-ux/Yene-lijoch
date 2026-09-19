@@ -235,6 +235,7 @@ class MediaItemCreateSerializer(serializers.ModelSerializer):
     # Object-level validation
     # ------------------------------------------------------------------
     def validate(self, data):
+<<<<<<< HEAD
         import logging
         logging.getLogger(__name__).info(
             "MediaItemCreateSerializer.validate: data_keys=%s file=%r cover=%r "
@@ -247,6 +248,8 @@ class MediaItemCreateSerializer(serializers.ModelSerializer):
             list(getattr(self.context.get("request"), "data", {}).keys()),
             list(getattr(self.context.get("request"), "FILES", {}).keys()),
         )
+=======
+>>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
         kind = data.get("kind", MediaItem.KIND_VIDEO)
         source = data.get("source", MediaItem.SOURCE_GALLERY)
         youtube_id = data.get("youtube_id", "")

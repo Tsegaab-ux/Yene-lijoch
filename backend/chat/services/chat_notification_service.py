@@ -2,7 +2,24 @@ import logging
 
 from notifications.services.notification_service import NotificationService
 logger = logging.getLogger(__name__)
+<<<<<<< HEAD
 from notifications.constants import NotificationType
+=======
+
+
+class ChatNotificationType:
+    """
+    Wire values for Notification.notification_type. Centralized here so the frontend
+    guide and any future notification-preferences UI can reference the same constants
+    this service uses, instead of duplicating string literals.
+    """
+
+    NEW_VIDEO_ADDED = "new_video_added"
+    NEW_MESSAGE = "new_chat_message"
+    NEW_STUDENT = "new_student_added"
+    NEW_LESSON = "new_lesson"
+    NEW_PARENT_JOINED = "new_parent_joined"
+>>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
 
 
 class ChatNotificationService:
@@ -39,7 +56,11 @@ class ChatNotificationService:
             user=recipient,
             title="New message",
             message=message.text[:140],
+<<<<<<< HEAD
             notification_type=NotificationType.MESSAGE,
+=======
+            notification_type=ChatNotificationType.NEW_MESSAGE,
+>>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
             data={"conversation_id": conversation.id, "screen": "chat"},
         )
 

@@ -40,7 +40,11 @@ class NotificationMarkReadAPIView(APIView):
         notification = (
             NotificationSelector.get_user_notification(request.user,pk,)
         )
+<<<<<<< HEAD
         NotificationService.mark_read(notification=notification)
+=======
+        NotificationService.mark_read(request.user)
+>>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
         return Response(
             {
                 "detail":

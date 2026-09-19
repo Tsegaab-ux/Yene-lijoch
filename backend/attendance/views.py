@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # attendance/views.py
 import logging
 
@@ -17,21 +18,47 @@ from organizations.utils import (
 )
 from students.models import Student
 
+=======
+from django.shortcuts import get_object_or_404
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
+from students.models import Student
+>>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
 from .models import Attendance
 from .serializers import (
     AttendanceBulkCreateSerializer,
     AttendanceCreateSerializer,
+    AttendanceBulkCreateSerializer,
     AttendanceEditSerializer,
+<<<<<<< HEAD
     AttendanceSerializer,
     AttendanceSummarySerializer,
+=======
+    AttendanceSummarySerializer,
+)
+from lessons.models import Lesson
+from organizations.utils import (
+    is_superuser,
+    is_admin,
+    get_user_organization,
+    get_user_teacher
+>>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
 )
 from .services.attendance_notification_service import AttendanceService
 
+<<<<<<< HEAD
 logger = logging.getLogger(__name__)
 
 
 # ======================================================================
 # Scoping helpers
+=======
+# ======================================================================
+# Scoping helpers (same pattern as everywhere else)
+>>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
 # ======================================================================
 
 def scope_attendance(qs, user):
@@ -68,6 +95,7 @@ def scope_lessons(qs, user):
     return qs.filter(classroom__organization=org)
 
 
+<<<<<<< HEAD
 def assert_can_write_attendance(user, lesson, student=None):
     """
     Verify the user may write attendance for `lesson`.
@@ -112,15 +140,23 @@ def safe_notify(record, actor):
         )
 
 
+=======
+>>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
 # ======================================================================
 # List + single create
 # ======================================================================
 
 class AttendanceListCreateAPIView(APIView):
     """
+<<<<<<< HEAD
     GET  /attendance/?lesson=<id>
     GET  /attendance/?student=<id>
     POST /attendance/
+=======
+    GET  /attendance/?lesson=<id>       list for a lesson
+    GET  /attendance/?student=<id>      list for a student
+    POST /attendance/                   single create
+>>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
     """
 
     permission_classes = [IsAuthenticated]
@@ -145,6 +181,7 @@ class AttendanceListCreateAPIView(APIView):
 
     def post(self, request):
         if not (is_admin(request.user) or get_user_teacher(request.user)):
+<<<<<<< HEAD
             raise PermissionDenied(
                 "Only teachers and admins can record attendance."
             )
@@ -162,11 +199,47 @@ class AttendanceListCreateAPIView(APIView):
 
         return Response(
             AttendanceSerializer(record).data,
+=======
+            raise PermissionDenied("Only teachers and admins can record attendance.")
+
+        serializer = AttendanceCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        record = serializer.save(recorded_by=get_user_teacher(request.user))
+        return Response(
+            AttendanceSerializer(record).data,
             status=status.HTTP_201_CREATED,
         )
 
 
 # ======================================================================
+# Bulk upsert — AttendanceScreen's save button
+# ======================================================================
+
+class AttendanceBulkCreateAPIView(APIView):
+    """POST /attendance/bulk/"""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not (is_admin(request.user) or get_user_teacher(request.user)):
+            raise PermissionDenied("Only teachers and admins can record attendance.")
+
+        serializer = AttendanceBulkCreateSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        records = serializer.save()
+
+        return Response(
+            AttendanceSerializer(records, many=True).data,
+>>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
+            status=status.HTTP_201_CREATED,
+        )
+
+
+# ======================================================================
+<<<<<<< HEAD
 # Bulk upsert — AttendanceScreen's save button
 # ======================================================================
 
@@ -233,6 +306,9 @@ class AttendanceBulkCreateAPIView(APIView):
 
 # ======================================================================
 # Summary
+=======
+# Summary — TeacherHome's attendance card
+>>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
 # ======================================================================
 
 class AttendanceSummaryAPIView(APIView):
@@ -269,8 +345,14 @@ class AttendanceSummaryAPIView(APIView):
             }
             return Response(AttendanceSummarySerializer(data).data)
 
+<<<<<<< HEAD
         # ----- Case 2: summary for one student -----------------------
         if student_id:
+=======
+        # ----- Case 2: summary for one student (all lessons) ---------
+        if student_id:
+            # Access control — parents only see their own child.
+>>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
             student = get_object_or_404(Student, pk=student_id)
             user = request.user
 
@@ -280,6 +362,7 @@ class AttendanceSummaryAPIView(APIView):
                 if parent:
                     owns = Student.objects.filter(
                         pk=student.pk,
+<<<<<<< HEAD
                         parents=parent,           # adjust to your schema
                     ).exists()
 
@@ -290,6 +373,16 @@ class AttendanceSummaryAPIView(APIView):
                         and student.classroom.teacher_id == teacher.id
                     )
 
+=======
+                        parents=parent,       # adjust to your schema
+                    ).exists()
+                teacher = get_user_teacher(user)
+                if teacher:
+                    owns = owns or (
+                        student.classroom
+                        and student.classroom.teacher_id == teacher.id
+                    )
+>>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
                 if not owns:
                     raise PermissionDenied(
                         "You do not have access to this student's attendance."
@@ -338,6 +431,7 @@ class AttendanceDetailAPIView(APIView):
         return get_object_or_404(qs, pk=pk)
 
     def get(self, request, pk):
+<<<<<<< HEAD
         return Response(
             AttendanceSerializer(self.get_object(request, pk)).data,
         )
@@ -363,13 +457,29 @@ class AttendanceDetailAPIView(APIView):
         if record.status != old_status:
             safe_notify(record, actor=request.user)
 
+=======
+        return Response(AttendanceSerializer(self.get_object(request, pk)).data)
+
+    def patch(self, request, pk):
+        if not (is_admin(request.user) or get_user_teacher(request.user)):
+            raise PermissionDenied("You do not have permission to edit attendance.")
+
+        record = self.get_object(request, pk)
+        serializer = AttendanceEditSerializer(record, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        record = serializer.save()
+>>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
         return Response(AttendanceSerializer(record).data)
 
     def delete(self, request, pk):
         if not (is_admin(request.user) or get_user_teacher(request.user)):
+<<<<<<< HEAD
             raise PermissionDenied(
                 "You do not have permission to delete attendance."
             )
+=======
+            raise PermissionDenied("You do not have permission to delete attendance.")
+>>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
 
         self.get_object(request, pk).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
