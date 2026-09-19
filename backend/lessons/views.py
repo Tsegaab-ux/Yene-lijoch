@@ -1,34 +1,64 @@
+# lessons/views.py
+import logging
+
 from django.shortcuts import get_object_or_404
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from django.utils import timezone
+
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from organizations.utils import (
+    get_user_organization,
+    get_user_teacher,
+    is_admin,
+    is_superuser,
+)
 
 from .models import Lesson
 from .serializers import (
-    LessonSerializer,
     LessonCreateSerializer,
     LessonEditSerializer,
+    LessonSerializer,
+    LessonTeacherSerializer,
 )
+from .services.lesson_notification_service import LessonNotificationService
 
-from django.utils import timezone
-from .models import Lesson
-from .serializers import LessonTeacherSerializer
+logger = logging.getLogger(__name__)
 
-from organizations.utils import (
-    is_superuser,
-    is_admin,
-    get_user_organization,
-    get_user_teacher,
-)
+
+# ======================================================================
+# Queryset + scoping helpers
+# ======================================================================
+
+def base_queryset():
+    return Lesson.objects.select_related("classroom", "classroom__organization")
+
+
+def queryset_for_user(user):
+    """
+    Superusers → all lessons.
+    Admins     → only lessons in their organization.
+    """
+    qs = base_queryset()
+    if is_superuser(user):
+        return qs
+
+    org = get_user_organization(user)
+    if not org:
+        return qs.none()
+
+    return qs.filter(classroom__organization=org)
+
 
 def scope_lessons_for_teacher(qs, user):
     """
-    Teacher  → only lessons in their own classes.
-    Admin    → only lessons in their org.
-    Superuser→ all.
+    Teacher   → only lessons in their own classes.
+    Admin     → only lessons in their org.
+    Superuser → all.
     """
     if user.is_superuser:
         return qs
@@ -40,49 +70,19 @@ def scope_lessons_for_teacher(qs, user):
     org = get_user_organization(user)
     if not org:
         return qs.none()
-    return qs.filter(classroom__organization=org)
-
-
-# ======================================================================
-# Queryset helpers
-# ======================================================================
-
-def base_queryset():
-    return (
-        Lesson.objects
-        .select_related(
-            "classroom",
-        )
-    )
-
-
-def queryset_for_user(user):
-    """
-    Superusers → all lessons.
-    Admins     → only lessons belonging to their organization.
-    """
-    qs = base_queryset()
-    if is_superuser(user):
-        return qs
-
-    org = get_user_organization(user)
-    if not org:
-        # Admin without an organization sees nothing.
-        return qs.none()
 
     return qs.filter(classroom__organization=org)
 
 
 def apply_filters(qs, request):
     """
-    Apply optional query-string filters used by the frontend:
+    Optional query-string filters:
 
         ?status=this_week
         ?published=true|false
         ?year=2026
         ?week=5
         ?classroom=<id>
-        ?teacher=<id>
         ?category=Creation
     """
     status_param = request.query_params.get("status")
@@ -112,76 +112,117 @@ def apply_filters(qs, request):
     return qs
 
 
+def check_org_scope(user, data, instance=None):
+    """
+    Module-level helper so both the list and detail views can use it
+    without duplicating the logic. `data` is the serializer's
+    validated_data; `instance` is the existing lesson on edits.
+    """
+    if is_superuser(user):
+        return
+
+    org = get_user_organization(user)
+    if not org:
+        raise PermissionDenied("Your account is not linked to an organization.")
+
+    target_classroom = data.get("classroom") or getattr(instance, "classroom", None)
+    if target_classroom and getattr(target_classroom, "organization_id", None) != org.id:
+        raise PermissionDenied(
+            "You can only manage lessons inside your own organization."
+        )
+
+
+# ======================================================================
+# Notification side effects — the ONE place lesson events fire
+# ======================================================================
+
+def notify_side_effects(lesson, *, old_date, was_published, actor):
+    """
+    Fire notifications for state transitions.
+
+    Called after every save path (create, patch, put, dedicated
+    endpoints). Each trigger is guarded so we only notify on an actual
+    transition:
+
+      - draft → published         → notify_lesson_published
+      - lesson_date changed       → notify_lesson_rescheduled
+                                    (only when the lesson is live)
+
+    Hiding a live lesson is silent (parents don't need to know it's
+    hidden; it just disappears from their feed).
+    """
+    if not lesson.published:
+        return
+
+    # draft → live
+    if not was_published and lesson.published:
+        LessonNotificationService.notify_lesson_published(lesson, actor=actor)
+        return
+
+    # date change on a live lesson
+    if old_date != lesson.lesson_date:
+        LessonNotificationService.notify_lesson_rescheduled(
+            lesson, old_date=old_date, actor=actor,
+        )
+
+
+def safe_notify(callable_, *args, **kwargs):
+    """Never let a notification failure 500 the user's request."""
+    try:
+        return callable_(*args, **kwargs)
+    except Exception:
+        logger.exception("Notification side effect failed")
+        return None
+
+
 # ======================================================================
 # List + Create
 # ======================================================================
 
 class LessonListCreateAPIView(APIView):
     """
-    GET  /lessons/
-        List lessons visible to the current user.
-        - Superuser → all lessons
-        - Admin     → only lessons in their organization
-
-    POST /lessons/
-        Create a lesson. Superuser can create for any classroom;
-        an admin can only create lessons inside their organization.
+    GET  /lessons/          → list, scoped to the user
+    POST /lessons/          → create (admins only)
     """
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
-    # ------------------------------------------------------------------
     def get(self, request):
         qs = queryset_for_user(request.user)
         qs = apply_filters(qs, request)
-
         serializer = LessonSerializer(
-            qs,
-            many=True,
-            context={"request": request},
+            qs, many=True, context={"request": request},
         )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    # ------------------------------------------------------------------
     def post(self, request):
         if not is_admin(request.user):
             raise PermissionDenied("You do not have permission to create lessons.")
 
         serializer = LessonCreateSerializer(
-            data=request.data,
-            context={"request": request},
+            data=request.data, context={"request": request},
         )
-
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Enforce organization scope on the write.
-        self._check_org_scope(request.user, serializer.validated_data)
+        check_org_scope(request.user, serializer.validated_data)
 
         lesson = serializer.save()
 
-        response_serializer = LessonSerializer(
-            lesson,
-            context={"request": request},
-        )
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-
-    # ------------------------------------------------------------------
-    def _check_org_scope(self, user, data):
-        """Admins can only write lessons inside their own organization."""
-        if is_superuser(user):
-            return
-
-        org = get_user_organization(user)
-        if not org:
-            raise PermissionDenied("Your account is not linked to an organization.")
-
-        classroom = data.get("classroom")
-        if classroom and getattr(classroom, "organization_id", None) != org.id:
-            raise PermissionDenied(
-                "You can only create lessons for your own organization."
+        # Notify only if it's created already-published.
+        # A draft will fire notify_lesson_published when toggled live.
+        if lesson.published:
+            safe_notify(
+                LessonNotificationService.notify_new_lesson,
+                lesson,
+                actor=request.user,
             )
+
+        return Response(
+            LessonSerializer(lesson, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 # ======================================================================
@@ -190,27 +231,17 @@ class LessonListCreateAPIView(APIView):
 
 class LessonDetailAPIView(APIView):
     """
-    GET    /lessons/<id>/
-    PUT    /lessons/<id>/
-    PATCH  /lessons/<id>/
-    DELETE /lessons/<id>/
-
-    Superusers can manage any lesson.
-    Admins can only read/manage lessons inside their organization.
+    Superusers manage anything. Admins manage lessons in their org.
+    Teachers can read their own class's lessons but not modify them
+    (that's an intentional difference from admins).
     """
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
-    # ------------------------------------------------------------------
     def get_object(self, request, pk):
-        """
-        Fetch a lesson the current user is allowed to see.
-        Returns 404 (not 403) when out of scope so we don't leak
-        the existence of other organizations' lessons.
-        """
-        qs = queryset_for_user(request.user)
-        return get_object_or_404(qs, pk=pk)
+        # 404 (not 403) when out of scope, to avoid leaking existence.
+        return get_object_or_404(queryset_for_user(request.user), pk=pk)
 
     def _require_admin(self, request):
         if not is_admin(request.user):
@@ -219,60 +250,52 @@ class LessonDetailAPIView(APIView):
     # ------------------------------------------------------------------
     def get(self, request, pk):
         lesson = self.get_object(request, pk)
-        serializer = LessonSerializer(
-            lesson,
-            context={"request": request},
+        return Response(
+            LessonSerializer(lesson, context={"request": request}).data,
+            status=status.HTTP_200_OK,
         )
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
     # ------------------------------------------------------------------
     def put(self, request, pk):
-        self._require_admin(request)
-        lesson = self.get_object(request, pk)
+        return self._update(request, pk, partial=False)
 
-        serializer = LessonEditSerializer(
-            lesson,
-            data=request.data,
-            context={"request": request},
-        )
-
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        self._check_org_scope(request.user, serializer.validated_data, lesson)
-
-        lesson = serializer.save()
-
-        response_serializer = LessonSerializer(
-            lesson,
-            context={"request": request},
-        )
-        return Response(response_serializer.data, status=status.HTTP_200_OK)
-
-    # ------------------------------------------------------------------
     def patch(self, request, pk):
+        return self._update(request, pk, partial=True)
+
+    def _update(self, request, pk, *, partial):
         self._require_admin(request)
         lesson = self.get_object(request, pk)
+
+        # Snapshot the fields we care about BEFORE saving, so we can
+        # detect real transitions after save.
+        old_date = lesson.lesson_date
+        was_published = lesson.published
 
         serializer = LessonEditSerializer(
             lesson,
             data=request.data,
-            partial=True,
+            partial=partial,
             context={"request": request},
         )
-
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        self._check_org_scope(request.user, serializer.validated_data, lesson)
+        check_org_scope(request.user, serializer.validated_data, lesson)
 
         lesson = serializer.save()
 
-        response_serializer = LessonSerializer(
+        safe_notify(
+            notify_side_effects,
             lesson,
-            context={"request": request},
+            old_date=old_date,
+            was_published=was_published,
+            actor=request.user,
         )
-        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+        return Response(
+            LessonSerializer(lesson, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
     # ------------------------------------------------------------------
     def delete(self, request, pk):
@@ -281,32 +304,13 @@ class LessonDetailAPIView(APIView):
         lesson.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    # ------------------------------------------------------------------
-    def _check_org_scope(self, user, data, instance):
-        if is_superuser(user):
-            return
-
-        org = get_user_organization(user)
-        if not org:
-            raise PermissionDenied("Your account is not linked to an organization.")
-
-        # Can't move a lesson into another organization.
-        new_classroom = data.get("classroom", instance.classroom)
-        if new_classroom and getattr(new_classroom, "organization_id", None) != org.id:
-            raise PermissionDenied(
-                "You can only manage lessons inside your own organization."
-            )
-
 
 # ======================================================================
 # Frontend-specific actions
 # ======================================================================
 
 class LessonMakeThisWeekAPIView(APIView):
-    """
-    POST /lessons/<id>/make-this-week/
-    Frontend: "Make this week" chip.
-    """
+    """POST /lessons/<id>/make-this-week/"""
 
     permission_classes = [IsAuthenticated]
 
@@ -315,20 +319,27 @@ class LessonMakeThisWeekAPIView(APIView):
             raise PermissionDenied("You do not have permission to modify lessons.")
 
         lesson = get_object_or_404(queryset_for_user(request.user), pk=pk)
+
+        # Only notify on an actual transition into "this week".
+        # A repeat tap (or setting an already-this-week lesson) is silent.
+        was_this_week = lesson.status == Lesson.STATUS_THIS_WEEK
         lesson.mark_this_week()
 
-        serializer = LessonSerializer(
-            lesson,
-            context={"request": request},
+        if not was_this_week:
+            safe_notify(
+                LessonNotificationService.notify_lesson_this_week,
+                lesson,
+                actor=request.user,
+            )
+
+        return Response(
+            LessonSerializer(lesson, context={"request": request}).data,
+            status=status.HTTP_200_OK,
         )
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class LessonTogglePublishAPIView(APIView):
-    """
-    POST /lessons/<id>/toggle-publish/
-    Frontend: "Publish" / "Hide" chip.
-    """
+    """POST /lessons/<id>/toggle-publish/"""
 
     permission_classes = [IsAuthenticated]
 
@@ -337,7 +348,17 @@ class LessonTogglePublishAPIView(APIView):
             raise PermissionDenied("You do not have permission to modify lessons.")
 
         lesson = get_object_or_404(queryset_for_user(request.user), pk=pk)
+
+        was_published = lesson.published
         published = lesson.toggle_published()
+
+        # Only draft → live fires. Hiding is silent.
+        if not was_published and published:
+            safe_notify(
+                LessonNotificationService.notify_lesson_published,
+                lesson,
+                actor=request.user,
+            )
 
         return Response(
             {"id": lesson.id, "published": published},
@@ -346,11 +367,7 @@ class LessonTogglePublishAPIView(APIView):
 
 
 class LessonSetDateAPIView(APIView):
-    """
-    POST /lessons/<id>/set-date/
-    Frontend: "Set date" / "Save date" chip on the calendar.
-    Body: { "lesson_date": "2026-09-21", "date_label": "September 21, 2026" }
-    """
+    """POST /lessons/<id>/set-date/  body: { lesson_date, date_label }"""
 
     permission_classes = [IsAuthenticated]
 
@@ -367,16 +384,30 @@ class LessonSetDateAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        old_date = lesson.lesson_date
+
         lesson.lesson_date = lesson_date
         lesson.date_label = request.data.get("date_label", "") or ""
-        # `year` is synced inside Lesson.save().
         lesson.save(update_fields=["lesson_date", "date_label", "year", "updated_at"])
 
-        serializer = LessonSerializer(
-            lesson,
-            context={"request": request},
+        if lesson.published and old_date != lesson.lesson_date:
+            safe_notify(
+                LessonNotificationService.notify_lesson_rescheduled,
+                lesson,
+                old_date=old_date,
+                actor=request.user,
+            )
+
+        return Response(
+            LessonSerializer(lesson, context={"request": request}).data,
+            status=status.HTTP_200_OK,
         )
-        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ======================================================================
+# Teacher-facing reads
+# ======================================================================
+
 class LessonTodayAPIView(APIView):
     """GET /lessons/today/"""
 
@@ -385,25 +416,23 @@ class LessonTodayAPIView(APIView):
     def get(self, request):
         qs = (
             Lesson.objects
-            .select_related("classroom",)
-            .order_by("lesson_date")       
+            .select_related("classroom")
+            .order_by("lesson_date")
         )
         qs = scope_lessons_for_teacher(qs, request.user)
 
         today = timezone.localdate()
 
-        # 1. This week's lesson (explicit flag).
         this_week = (
             qs.filter(status=Lesson.STATUS_THIS_WEEK, published=True)
             .order_by("-lesson_date")
             .first()
         )
 
-        # 2. Next upcoming lesson.
         upcoming = (
             qs.filter(published=True, lesson_date__gte=today)
             .exclude(status=Lesson.STATUS_COMPLETED)
-            .order_by("lesson_date")          # ← removed "start_time"
+            .order_by("lesson_date")
             .first()
         )
 
@@ -411,7 +440,7 @@ class LessonTodayAPIView(APIView):
         if this_week and upcoming and this_week.id == upcoming.id:
             next_lesson = (
                 qs.filter(published=True, lesson_date__gt=upcoming.lesson_date)
-                .order_by("lesson_date")      # ← removed "start_time"
+                .order_by("lesson_date")
                 .first()
             )
 
@@ -443,12 +472,13 @@ class LessonUpcomingAPIView(APIView):
             Lesson.objects
             .select_related("classroom")
             .filter(published=True)
-            .order_by("lesson_date")          # ← removed "start_time"
+            .order_by("lesson_date")
         )
         qs = scope_lessons_for_teacher(qs, request.user)
 
         return Response(
-            LessonTeacherSerializer(qs[:limit], many=True, context={"request": request}).data
+            LessonTeacherSerializer(
+                qs[:limit], many=True, context={"request": request},
+            ).data
         )
-
     

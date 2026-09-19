@@ -97,3 +97,4 @@ def get_user_teacher(user):
         return teacher
     profile = getattr(user, "profile", None)
     return getattr(profile, "teacher_profile", None) if profile else None
+

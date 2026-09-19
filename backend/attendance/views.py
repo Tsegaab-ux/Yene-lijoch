@@ -1,28 +1,37 @@
+# attendance/views.py
+import logging
+
 from django.shortcuts import get_object_or_404
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
-from students.models import Student
-from .models import Attendance
-from .serializers import (
-    AttendanceSerializer,
-    AttendanceCreateSerializer,
-    AttendanceBulkCreateSerializer,
-    AttendanceEditSerializer,
-    AttendanceSummarySerializer,
-)
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from lessons.models import Lesson
 from organizations.utils import (
-    is_superuser,
-    is_admin,
     get_user_organization,
-    get_user_teacher
+    get_user_teacher,
+    is_admin,
+    is_superuser,
 )
+from students.models import Student
+
+from .models import Attendance
+from .serializers import (
+    AttendanceBulkCreateSerializer,
+    AttendanceCreateSerializer,
+    AttendanceEditSerializer,
+    AttendanceSerializer,
+    AttendanceSummarySerializer,
+)
+from .services.attendance_notification_service import AttendanceService
+
+logger = logging.getLogger(__name__)
+
 
 # ======================================================================
-# Scoping helpers (same pattern as everywhere else)
+# Scoping helpers
 # ======================================================================
 
 def scope_attendance(qs, user):
@@ -59,15 +68,59 @@ def scope_lessons(qs, user):
     return qs.filter(classroom__organization=org)
 
 
+def assert_can_write_attendance(user, lesson, student=None):
+    """
+    Verify the user may write attendance for `lesson`.
+
+    Reads are gated by `scope_attendance`, but writes come in as raw
+    request data and bypass that filter. If `student` is provided,
+    we also check that they belong to the lesson's classroom.
+
+    The bulk path passes `student=None` because the serializer has
+    already validated every record against the classroom roster.
+    """
+    if is_superuser(user):
+        return
+
+    teacher = get_user_teacher(user)
+    if teacher:
+        if lesson.classroom.teacher_id != teacher.id:
+            raise PermissionDenied(
+                "You can only record attendance for your own classes."
+            )
+        if student is not None and student.classroom_id != lesson.classroom_id:
+            raise PermissionDenied(
+                "That student is not in this lesson's class."
+            )
+        return
+
+    org = get_user_organization(user)
+    if not org or lesson.classroom.organization_id != org.id:
+        raise PermissionDenied(
+            "You can only record attendance for your own organization."
+        )
+
+
+def safe_notify(record, actor):
+    """Never let a notification failure 500 an otherwise-good save."""
+    try:
+        AttendanceService.notify_new_attendance(record, actor=actor)
+    except Exception:
+        logger.exception(
+            "Attendance notification fan-out failed: attendance=%s",
+            getattr(record, "id", None),
+        )
+
+
 # ======================================================================
 # List + single create
 # ======================================================================
 
 class AttendanceListCreateAPIView(APIView):
     """
-    GET  /attendance/?lesson=<id>       list for a lesson
-    GET  /attendance/?student=<id>      list for a student
-    POST /attendance/                   single create
+    GET  /attendance/?lesson=<id>
+    GET  /attendance/?student=<id>
+    POST /attendance/
     """
 
     permission_classes = [IsAuthenticated]
@@ -92,11 +145,21 @@ class AttendanceListCreateAPIView(APIView):
 
     def post(self, request):
         if not (is_admin(request.user) or get_user_teacher(request.user)):
-            raise PermissionDenied("Only teachers and admins can record attendance.")
+            raise PermissionDenied(
+                "Only teachers and admins can record attendance."
+            )
 
         serializer = AttendanceCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        lesson = serializer.validated_data.get("lesson")
+        student = serializer.validated_data.get("student")
+        assert_can_write_attendance(request.user, lesson, student)
+
         record = serializer.save(recorded_by=get_user_teacher(request.user))
+
+        safe_notify(record, actor=request.user)
+
         return Response(
             AttendanceSerializer(record).data,
             status=status.HTTP_201_CREATED,
@@ -108,29 +171,68 @@ class AttendanceListCreateAPIView(APIView):
 # ======================================================================
 
 class AttendanceBulkCreateAPIView(APIView):
-    """POST /attendance/bulk/"""
+    """
+    POST /attendance/bulk/
+
+    Payload:
+        {
+          "lesson": 42,
+          "records": [
+            { "student": 10, "status": "present" },
+            { "student": 11, "status": "absent", "note": "Sick" }
+          ]
+        }
+
+    The lesson is at the top level, not on each record — the serializer
+    guarantees every record's student is on that lesson's roster.
+    """
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         if not (is_admin(request.user) or get_user_teacher(request.user)):
-            raise PermissionDenied("Only teachers and admins can record attendance.")
+            raise PermissionDenied(
+                "Only teachers and admins can record attendance."
+            )
 
         serializer = AttendanceBulkCreateSerializer(
             data=request.data,
             context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
-        records = serializer.save()
+
+        lesson = serializer.validated_data["lesson"]
+
+        # One scope check for the whole batch — the serializer already
+        # verified every student is on the lesson's classroom roster.
+        assert_can_write_attendance(request.user, lesson)
+
+        saved = serializer.save()
+
+        # Notify parents for newly created rows only. Bulk upserts are
+        # common (the save button re-submits the whole class), so we
+        # skip rows that were already there to avoid re-notifying.
+        rows = []
+        for entry in saved:
+            if isinstance(entry, tuple):
+                record, created = entry
+                rows.append(record)
+                if not created:
+                    continue
+            else:
+                record = entry
+                rows.append(record)
+
+            safe_notify(record, actor=request.user)
 
         return Response(
-            AttendanceSerializer(records, many=True).data,
+            AttendanceSerializer(rows, many=True).data,
             status=status.HTTP_201_CREATED,
         )
 
 
 # ======================================================================
-# Summary — TeacherHome's attendance card
+# Summary
 # ======================================================================
 
 class AttendanceSummaryAPIView(APIView):
@@ -167,9 +269,8 @@ class AttendanceSummaryAPIView(APIView):
             }
             return Response(AttendanceSummarySerializer(data).data)
 
-        # ----- Case 2: summary for one student (all lessons) ---------
+        # ----- Case 2: summary for one student -----------------------
         if student_id:
-            # Access control — parents only see their own child.
             student = get_object_or_404(Student, pk=student_id)
             user = request.user
 
@@ -179,14 +280,16 @@ class AttendanceSummaryAPIView(APIView):
                 if parent:
                     owns = Student.objects.filter(
                         pk=student.pk,
-                        parents=parent,       # adjust to your schema
+                        parents=parent,           # adjust to your schema
                     ).exists()
+
                 teacher = get_user_teacher(user)
-                if teacher:
-                    owns = owns or (
+                if teacher and not owns:
+                    owns = bool(
                         student.classroom
                         and student.classroom.teacher_id == teacher.id
                     )
+
                 if not owns:
                     raise PermissionDenied(
                         "You do not have access to this student's attendance."
@@ -235,21 +338,38 @@ class AttendanceDetailAPIView(APIView):
         return get_object_or_404(qs, pk=pk)
 
     def get(self, request, pk):
-        return Response(AttendanceSerializer(self.get_object(request, pk)).data)
+        return Response(
+            AttendanceSerializer(self.get_object(request, pk)).data,
+        )
 
     def patch(self, request, pk):
         if not (is_admin(request.user) or get_user_teacher(request.user)):
-            raise PermissionDenied("You do not have permission to edit attendance.")
+            raise PermissionDenied(
+                "You do not have permission to edit attendance."
+            )
 
         record = self.get_object(request, pk)
-        serializer = AttendanceEditSerializer(record, data=request.data, partial=True)
+
+        old_status = record.status
+
+        serializer = AttendanceEditSerializer(
+            record, data=request.data, partial=True,
+        )
         serializer.is_valid(raise_exception=True)
         record = serializer.save()
+
+        # Only notify on an actual status change. Editing just the note
+        # doesn't warrant a parent ping.
+        if record.status != old_status:
+            safe_notify(record, actor=request.user)
+
         return Response(AttendanceSerializer(record).data)
 
     def delete(self, request, pk):
         if not (is_admin(request.user) or get_user_teacher(request.user)):
-            raise PermissionDenied("You do not have permission to delete attendance.")
+            raise PermissionDenied(
+                "You do not have permission to delete attendance."
+            )
 
         self.get_object(request, pk).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
