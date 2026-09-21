@@ -7,17 +7,15 @@ import {
   ImageSectionCard,
   ImageChip,
 } from "../../components/teacher/ImageSectionCard";
-import {
-  TEACHER,
-  TODAY_CURRICULUM,
-  CURRICULUM,
-  getAttendanceSummary,
-} from "../../data/teacherMock";
 import { TeacherColors as C } from "../../constants/teacherTheme";
-import { useTeacherEvents } from "../../contexts/TeacherEventsContext";
 import { useChat } from "../../contexts/ChatContext";
-import { useTeacherStudents } from "../../contexts/TeacherStudentsContext";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTeacher } from "../../contexts/TeacherContext";
+import { useTeacherCurriculumContext } from "../../contexts/TeacherCurriculumContext";
+import { useAttendance } from "../../hooks/useAttendance";
+import { useEventsContext } from "@/contexts/EventsContext";
+import { useNotifications } from "@/contexts/NotificationContext";
+import { IconButton } from "@/components/parent/ui";
 
 const IMAGES = {
   welcome: require("../../../assets/images/teacher-home/teacher-home-welcome.png"),
@@ -29,33 +27,53 @@ const IMAGES = {
 
 export default function TeacherHome() {
   const { t } = useLanguage();
-  const { events } = useTeacherEvents();
+  const { events } = useEventsContext();
   const { conversations } = useChat();
-  const { students, attendanceWeekday, attendanceDate } = useTeacherStudents();
-  const attendance = getAttendanceSummary(students);
-  const nextLesson =
-    CURRICULUM.find((l) => l.status === "upcoming") ?? CURRICULUM[1];
+  const { unreadCount } = useNotifications();
+
+  const { teacher, primaryClass, isLoading: teacherLoading } = useTeacher();
+  const { todayLesson, nextLesson, isLoading: curriculumLoading } =
+    useTeacherCurriculumContext();
+
+  const { summary: attendanceSummary, isLoading: attendanceLoading } =
+    useAttendance(primaryClass?.id, todayLesson?.id);
+
   const upcomingEvent = events[0];
   const unread = conversations.reduce((sum, c) => sum + c.unreadForTeacher, 0);
 
+  const attendance = {
+    total: attendanceSummary?.total ?? primaryClass?.student_count ?? 0,
+    present: attendanceSummary?.present ?? 0,
+    absent: attendanceSummary?.absent ?? 0,
+  };
+
   return (
     <Screen>
+      {/* ---------- Welcome ---------- */}
       <ImageSectionCard image={IMAGES.welcome} height={168}>
         <View style={styles.welcomeRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.kicker}>{t("teacher.portal")}</Text>
-            <Text style={styles.hello}>{t("teacher.goodMorning")}</Text>
+            <Text style={styles.hello}>
+              {t("teacher.goodMorning")}
+              {teacher ? `, ${teacher.first_name}` : ""}
+            </Text>
             <Text style={styles.group}>
-              {TEACHER.program} · {TEACHER.group}
+              {teacher?.program ?? "Sunday School"} · {teacher?.group ?? ""}
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.iconBtn}
+          <IconButton
+            name="notifications-outline"
+            onPress={() => router.push("/teacher/notifications")}
+            badgeCount={unreadCount}
+            accessibilityLabel={t("parent.notifications")}
+          />
+          <IconButton
+            name="chatbubble-ellipses-outline"
             onPress={() => router.push("/teacher/messages")}
-          >
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
-            {unread > 0 ? <View style={styles.dot} /> : null}
-          </TouchableOpacity>
+            badgeCount={unread}
+            accessibilityLabel={t("parent.notifications")}
+          />
           <TouchableOpacity
             style={styles.iconBtn}
             onPress={() => router.push("/teacher/profile")}
@@ -65,35 +83,54 @@ export default function TeacherHome() {
         </View>
       </ImageSectionCard>
 
+      {/* ---------- Today's lesson ---------- */}
       <SectionLabel title={t("teacher.todaysLesson")} />
-      <ImageSectionCard image={IMAGES.lesson} height={300}>
-        <ImageChip
-          label={`Week ${TODAY_CURRICULUM.week} · ${TODAY_CURRICULUM.date}`}
-          tone="accent"
-        />
-        <Text style={styles.title}>{TODAY_CURRICULUM.title}</Text>
-        <Text style={styles.meta}>{TODAY_CURRICULUM.scripture}</Text>
+      {todayLesson ? (
+        <ImageSectionCard image={IMAGES.lesson} height={300}>
+          <ImageChip
+            label={`Week ${todayLesson.week} · ${todayLesson.date}`}
+            tone="accent"
+          />
+          <Text style={styles.title}>{todayLesson.title}</Text>
+          <Text style={styles.meta}>{todayLesson.scripture}</Text>
 
-        <View style={styles.divider} />
+          <View style={styles.divider} />
 
-        <Text style={styles.label}>{t("teacher.memoryVerse")}</Text>
-        <Text style={styles.verse}>"{TODAY_CURRICULUM.memoryVerse}"</Text>
+          <Text style={styles.label}>{t("teacher.memoryVerse")}</Text>
+          <Text style={styles.verse}>"{todayLesson.memoryVerse}"</Text>
 
-        <TouchableOpacity
-          style={styles.cta}
-          activeOpacity={0.88}
-          onPress={() =>
-            router.push(`/teacher/curriculum/${TODAY_CURRICULUM.id}`)
-          }
-        >
-          <Text style={styles.ctaText}>{t("teacher.openCurriculum")}</Text>
-          <Ionicons name="arrow-forward" size={18} color="#fff" />
-        </TouchableOpacity>
-      </ImageSectionCard>
+          <TouchableOpacity
+            style={styles.cta}
+            activeOpacity={0.88}
+            onPress={() =>
+              router.push(`/teacher/curriculum/${todayLesson.id}`)
+            }
+          >
+            <Text style={styles.ctaText}>{t("teacher.openCurriculum")}</Text>
+            <Ionicons name="arrow-forward" size={18} color="#fff" />
+          </TouchableOpacity>
+        </ImageSectionCard>
+      ) : (
+        <ImageSectionCard image={IMAGES.lesson} height={200}>
+          <Text style={styles.title}>
+            {curriculumLoading ? "Loading…" : t("teacher.noLessonYet")}
+          </Text>
+          <Text style={styles.meta}>
+            {t("teacher.noLessonYetSub")}
+          </Text>
+        </ImageSectionCard>
+      )}
 
+      {/* ---------- Today's students ---------- */}
       <SectionLabel title={t("teacher.todaysStudents")} />
       <ImageSectionCard image={IMAGES.students} height={250}>
-        <ImageChip label={`${attendanceWeekday} · ${attendanceDate}`} />
+        <ImageChip
+          label={`${new Date().toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+          })}`}
+        />
         <Text style={styles.title}>
           {attendance.total} {t("teacher.studentsSub")}
         </Text>
@@ -111,24 +148,33 @@ export default function TeacherHome() {
         <TouchableOpacity
           style={styles.cta}
           activeOpacity={0.88}
-          onPress={() => router.push("/teacher/classes/attendance")}
+          disabled={!todayLesson}
+          onPress={() =>
+            router.push(
+              `/teacher/classes/attendance?lessonId=${todayLesson?.id ?? ""}`
+            )
+          }
         >
           <Text style={styles.ctaText}>{t("teacher.takeAttendance")}</Text>
           <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
         </TouchableOpacity>
       </ImageSectionCard>
 
+      {/* ---------- Upcoming lesson ---------- */}
       <SectionLabel title={t("teacher.upcoming")} />
-      <ImageSectionCard
-        image={IMAGES.upcoming}
-        height={170}
-        onPress={() => router.push("/teacher/curriculum")}
-      >
-        <ImageChip label="Next Sunday" />
-        <Text style={styles.title}>{nextLesson.title}</Text>
-        <Text style={styles.meta}>{nextLesson.date}</Text>
-      </ImageSectionCard>
+      {nextLesson ? (
+        <ImageSectionCard
+          image={IMAGES.upcoming}
+          height={170}
+          onPress={() => router.push("/teacher/curriculum")}
+        >
+          <ImageChip label="Next" />
+          <Text style={styles.title}>{nextLesson.title}</Text>
+          <Text style={styles.meta}>{nextLesson.date}</Text>
+        </ImageSectionCard>
+      ) : null}
 
+      {/* ---------- Upcoming event ---------- */}
       <SectionLabel title={t("teacher.upcomingEvents")} />
       {upcomingEvent ? (
         <ImageSectionCard

@@ -13,13 +13,56 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ParentColors as C } from "../../constants/parentTheme";
+import { ParentChild } from "@/types/parentTypes";
 
 type ChildLike = {
   id: string;
   name: string;
   initials: string;
-  avatarColor: string;
 };
+
+type IconButtonProps = {
+  name: React.ComponentProps<typeof Ionicons>["name"];
+  onPress: () => void;
+  badgeCount?: number;
+  showDot?: boolean;
+  accessibilityLabel: string;
+};
+
+export function IconButton({
+  name,
+  onPress,
+  badgeCount = 0,
+  showDot = false,
+  accessibilityLabel,
+}: IconButtonProps) {
+  const showBadge = badgeCount > 0;
+  const label = showBadge
+    ? `${accessibilityLabel}, ${badgeCount} unread`
+    : accessibilityLabel;
+
+  return (
+    <TouchableOpacity
+      style={styles.iconBtn}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      <Ionicons name={name} size={20} color="#fff" />
+
+      {showBadge ? (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText} numberOfLines={1}>
+            {badgeCount > 99 ? "99+" : badgeCount}
+          </Text>
+        </View>
+      ) : showDot ? (
+        <View style={styles.dot} />
+      ) : null}
+    </TouchableOpacity>
+  );
+}
 
 export function Screen({
   children,
@@ -163,7 +206,7 @@ export function ChildChip({
   active,
   onPress,
 }: {
-  child: ChildLike;
+  child: ParentChild;
   active: boolean;
   onPress: () => void;
 }) {
@@ -175,7 +218,7 @@ export function ChildChip({
     >
       <AvatarBubble
         initials={child.initials}
-        color={child.avatarColor}
+        color={C.primary}
         size={28}
       />
       <Text style={[styles.childChipText, active && styles.childChipTextActive]}>
@@ -240,13 +283,13 @@ export function Avatar({
   child,
   size = 44,
 }: {
-  child: ChildLike;
+  child: ParentChild;
   size?: number;
 }) {
   return (
     <AvatarBubble
       initials={child.initials}
-      color={child.avatarColor}
+      color={C.primary}
       size={size}
     />
   );
@@ -294,6 +337,23 @@ export function MenuRow({
 }
 
 const styles = StyleSheet.create({
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dot: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.secondary,
+  },
   safe: {
     flex: 1,
     backgroundColor: C.bg,

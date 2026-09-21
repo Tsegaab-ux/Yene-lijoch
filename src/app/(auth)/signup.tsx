@@ -15,7 +15,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { LanguageToggle } from "../../components/LanguageToggle";
 import { StepDots } from "../../components/auth/StepDots";
 import { useLanguage } from "../../contexts/LanguageContext";
-import { notify, notifyConfirm } from "../../utils/notify";
+import { useAuth } from "@/hooks/useAuth";
 
 type Role = "parent" | "teacher" | "admin";
 
@@ -48,6 +48,7 @@ export default function Signup() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { register } = useAuth();
 
   const [contact, setContact] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");

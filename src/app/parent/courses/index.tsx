@@ -1,12 +1,16 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Screen, SoftCard, SectionLabel } from "../../../components/parent/ui";
-import { MEDIA_KIND_LABELS, MediaKind } from "../../../data/sharedContent";
 import { ParentColors as C } from "../../../constants/parentTheme";
-import { useSharedContent } from "../../../contexts/SharedContentContext";
 import { useLanguage } from "../../../contexts/LanguageContext";
+import { useSelectedChild } from "../../../contexts/SelectedChildContext";
+import { useMediaContext } from "@/contexts/MediaContext";
+import { useClassroomLessons } from "@/hooks/useClassroomLessons";
+import { MediaKind } from "@/types/mediaTypes";
+import { MEDIA_KIND_KEYS } from "@/utils/mediaLabels";
+import { colorForKind } from "@/utils/mediaColors";
 
 const FILTERS: Array<"All" | MediaKind | "lessons"> = [
   "All",
@@ -19,14 +23,25 @@ const FILTERS: Array<"All" | MediaKind | "lessons"> = [
 ];
 
 export default function CoursesScreen() {
-  const { publishedMedia, publishedCurriculum } = useSharedContent();
   const { t } = useLanguage();
+  const { selectedChild } = useSelectedChild();
+  const { media } = useMediaContext();
+  const { lessons } = useClassroomLessons(selectedChild?.classroomId ?? undefined);
+
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
 
-  const media = useMemo(() => {
-    if (filter === "All" || filter === "lessons") return publishedMedia;
-    return publishedMedia.filter((item) => item.kind === filter);
-  }, [filter, publishedMedia]);
+  // Filter media by kind when the user has picked a specific kind.
+  const filteredMedia = useMemo(() => {
+    const published = (media ?? []).filter((m) => m.published);
+    if (filter === "All" || filter === "lessons") return published;
+    return published.filter((item) => item.kind === filter);
+  }, [filter, media]);
+
+  // The lessons list is only shown when the filter allows it.
+  const showCurriculum = filter === "All" || filter === "lessons";
+  const showMedia = filter !== "lessons";
+
+  const kindLabel = (kind: MediaKind) => t(MEDIA_KIND_KEYS[kind]);
 
   return (
     <Screen>
@@ -45,7 +60,7 @@ export default function CoursesScreen() {
               ? t("parent.all")
               : item === "lessons"
                 ? t("parent.lessons")
-                : MEDIA_KIND_LABELS[item];
+                : kindLabel(item);
           return (
             <SoftCard
               key={item}
@@ -60,74 +75,91 @@ export default function CoursesScreen() {
         })}
       </ScrollView>
 
-      {(filter === "All" || filter === "lessons") && (
+      {/* ---------- Curriculum ---------- */}
+      {showCurriculum && (
         <>
           <SectionLabel title={t("parent.sundayCurriculum")} />
-          {publishedCurriculum.map((course) => (
-            <SoftCard
-              key={course.id}
-              style={styles.card}
-              onPress={() =>
-                router.push(`/parent/courses/${course.id}` as any)
-              }
-            >
-              <View style={styles.row}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.badge}>
-                    Week {course.week} · {course.category}
-                  </Text>
-                  <Text style={styles.cardTitle}>{course.title}</Text>
-                  <Text style={styles.meta}>
-                    {course.date} · {course.scripture}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={C.muted} />
-              </View>
+          {lessons.length === 0 ? (
+            <SoftCard style={styles.card}>
+              <Text style={styles.meta}>{t("parent.noLessons")}</Text>
             </SoftCard>
-          ))}
+          ) : (
+            lessons.map((course) => (
+              <SoftCard
+                key={course.id}
+                style={styles.card}
+                onPress={() =>
+                  router.push(`/parent/courses/${course.id}` as any)
+                }
+              >
+                <View style={styles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.badge}>
+                      Week {course.week} · {course.category ?? ""}
+                    </Text>
+                    <Text style={styles.cardTitle}>{course.title}</Text>
+                    <Text style={styles.meta}>
+                      {course.date} · {course.scripture}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={C.muted} />
+                </View>
+              </SoftCard>
+            ))
+          )}
         </>
       )}
 
-      {filter !== "lessons" && (
+      {/* ---------- Media ---------- */}
+      {showMedia && (
         <>
           <SectionLabel title={t("parent.watchLearn")} />
-          {media.map((item) => (
-            <SoftCard
-              key={item.id}
-              style={styles.card}
-              onPress={() =>
-                router.push(`/parent/courses/media-${item.id}` as any)
-              }
-            >
-              <View style={styles.row}>
-                <View style={[styles.iconBox, { backgroundColor: item.color }]}>
-                  <Ionicons
-                    name={
-                      item.kind === "song"
-                        ? "musical-notes"
-                        : item.kind === "bible_story"
-                          ? "book"
-                          : item.kind === "picture"
-                            ? "image"
-                            : "play"
-                    }
-                    size={18}
-                    color="#fff"
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.badge}>
-                    {MEDIA_KIND_LABELS[item.kind]}
-                  </Text>
-                  <Text style={styles.cardTitle}>{item.title}</Text>
-                  <Text style={styles.meta}>
-                    {item.duration} · {item.ageGroup}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={C.muted} />
-              </View>
+          {filteredMedia.length === 0 ? (
+            <SoftCard style={styles.card}>
+              <Text style={styles.meta}>{t("parent.noMedia")}</Text>
             </SoftCard>
-          ))}
+          ) : (
+            filteredMedia.map((item) => (
+              <SoftCard
+                key={item.id}
+                style={styles.card}
+                onPress={() =>
+                  router.push(`/parent/courses/media-${item.id}` as any)
+                }
+              >
+                <View style={styles.row}>
+                  <View
+                    style={[
+                      styles.iconBox,
+                      { backgroundColor: colorForKind(item.kind) },
+                    ]}
+                  >
+                    <Ionicons
+                      name={
+                        item.kind === "song"
+                          ? "musical-notes"
+                          : item.kind === "bible_story"
+                            ? "book"
+                            : item.kind === "picture"
+                              ? "image"
+                              : "play"
+                      }
+                      size={18}
+                      color="#fff"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.badge}>{kindLabel(item.kind)}</Text>
+                    <Text style={styles.cardTitle}>{item.title}</Text>
+                    <Text style={styles.meta}>
+                      {item.duration} · {item.ageGroup}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={C.muted} />
+                </View>
+              </SoftCard>
+            ))
+          )}
         </>
       )}
     </Screen>

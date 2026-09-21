@@ -7,41 +7,75 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { LanguageToggle } from "../../components/LanguageToggle";
-import { useLanguage } from "../../contexts/LanguageContext";
+import { useRoleNavigation } from "@/hooks/useRoleNavigation";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { useAuthContext } from "@/contexts/AuthContext";
 
-export default function LoginScreen() {
+// Define error response type
+interface ErrorResponse {
+  response?: {
+    status?: number;
+    data?: {
+      detail?: string;
+    };
+  };
+}
+
+export default function LoginScreen(): React.ReactElement {
   const { t } = useLanguage();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [username, setUsername] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  
+  const { login, isLoading } = useAuthContext();
 
-  const handleLogin = () => {
-    if (!email || !password) {
-      Alert.alert(t("common.error"), t("login.missing"));
+  const handleLogin = async (): Promise<void> => {
+    // Validate input
+    if (!username || !password) {
+      Alert.alert(
+        "Missing Information",
+        "Please enter your username and password."
+      );
       return;
     }
 
-    // Temporary UI/demo login system
-    if (email === "parent@test.com") {
-      router.replace("/parent");
+    // Validate username (at least 3 characters)
+    if (username.length < 3) {
+      Alert.alert(
+        "Invalid Username",
+        "Username must be at least 3 characters long."
+      );
       return;
     }
 
-    if (email === "teacher@test.com") {
-      router.replace("/teacher");
-      return;
-    }
-
-    if (email === "admin@test.com") {
-      router.replace("/admin");
-      return;
-    }
-
-    Alert.alert(t("login.demoTitle"), t("login.demoHint"));
+    try {
+      // Use the login function from the auth hook
+      await login(username, password, false);
+    } catch (error: unknown) {
+      // Type guard to check if error has response property
+      const err = error as ErrorResponse;
+      
+      // Error is already handled by the hook with toast
+      // Show a fallback alert for any unhandled errors
+      if (err.response?.status === 401) {
+        Alert.alert(
+          "Login Failed",
+          "Invalid username or password. Please try again."
+        );
+      } else if (err.response?.data?.detail) {
+        Alert.alert("Login Failed", err.response.data.detail);
+      } else {
+        Alert.alert(
+          "Login Failed",
+          "An unexpected error occurred. Please try again."
+        );
+      }
+    } 
   };
 
   return (
@@ -51,15 +85,19 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.title}>{t("login.title")}</Text>
+        {/* Header */}
+        <Text style={styles.title}>Welcome Back 👋</Text>
 
-        <Text style={styles.subtitle}>{t("login.subtitle")}</Text>
+        <Text style={styles.subtitle}>
+          Login to your Yene Lijoch account
+        </Text>
 
-        <Text style={styles.label}>{t("login.email")}</Text>
+        {/* Username */}
+        <Text style={styles.label}>Username</Text>
 
         <View style={styles.inputWrapper}>
           <Ionicons
-            name="mail-outline"
+            name="person-outline"
             size={20}
             color="#77758A"
             style={styles.inputIcon}
@@ -69,11 +107,11 @@ export default function LoginScreen() {
             style={styles.input}
             placeholder={t("login.emailPlaceholder")}
             placeholderTextColor="#999"
-            keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
-            value={email}
-            onChangeText={setEmail}
+            value={username}
+            onChangeText={setUsername}
+            editable={!isLoading}
           />
         </View>
 
@@ -94,11 +132,13 @@ export default function LoginScreen() {
             secureTextEntry={!showPassword}
             value={password}
             onChangeText={setPassword}
+            editable={!isLoading}
           />
 
           <TouchableOpacity
             onPress={() => setShowPassword(!showPassword)}
             style={styles.eyeButton}
+            disabled={isLoading}
           >
             <Ionicons
               name={showPassword ? "eye-off-outline" : "eye-outline"}
@@ -116,9 +156,10 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, isLoading && styles.buttonDisabled]}
           onPress={handleLogin}
           activeOpacity={0.8}
+          disabled={isLoading}
         >
           <Text style={styles.buttonText}>{t("login.login")}</Text>
 
@@ -134,7 +175,7 @@ export default function LoginScreen() {
       </View>
     </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -218,6 +259,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexDirection: "row",
     gap: 10,
+  },
+
+  buttonDisabled: {
+    opacity: 0.7,
   },
 
   buttonText: {

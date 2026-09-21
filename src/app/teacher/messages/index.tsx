@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Text, StyleSheet } from "react-native";
+import { ActivityIndicator, Text, StyleSheet } from "react-native";
 import { router } from "expo-router";
 import { ChatListShell, ConversationRow } from "../../../components/chat/ChatUI";
 import { useChat } from "../../../contexts/ChatContext";
@@ -19,7 +19,7 @@ const theme = {
 };
 
 export default function TeacherMessagesList() {
-  const { conversations } = useChat();
+  const { conversations, conversationsLoading } = useChat();
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
 
@@ -42,6 +42,10 @@ export default function TeacherMessagesList() {
       search={search}
       onSearch={setSearch}
     >
+      {conversationsLoading && conversations.length === 0 ? (
+        <ActivityIndicator style={styles.spinner} color={C.primary} />
+      ) : null}
+
       {filtered.map((item) => (
         <ConversationRow
           key={item.id}
@@ -56,7 +60,8 @@ export default function TeacherMessagesList() {
           onPress={() => router.push(`/teacher/messages/${item.id}`)}
         />
       ))}
-      {filtered.length === 0 ? (
+
+      {!conversationsLoading && filtered.length === 0 ? (
         <Text style={styles.empty}>No conversations found.</Text>
       ) : null}
     </ChatListShell>
@@ -67,6 +72,9 @@ const styles = StyleSheet.create({
   empty: {
     textAlign: "center",
     color: C.muted,
+    paddingVertical: 28,
+  },
+  spinner: {
     paddingVertical: 28,
   },
 });

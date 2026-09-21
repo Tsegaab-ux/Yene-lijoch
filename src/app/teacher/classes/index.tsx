@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -12,29 +12,40 @@ import {
   SoftCard,
   PrimaryButton,
 } from "../../../components/teacher/ui";
-import {
-  getAttendanceSummary,
-  SundayStudent,
-} from "../../../data/teacherMock";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
 import { useTeacherStudents } from "../../../contexts/TeacherStudentsContext";
 import { useLanguage } from "../../../contexts/LanguageContext";
+import { useAttendance } from "@/hooks/useAttendance";
+import { Student } from "@/types/studentTypes";
+import { AttendanceSummary } from "@/types/attendanceTypes";
+import { useTeacher } from "@/contexts/TeacherContext";
+import { useTeacherCurriculum } from "@/hooks/useTeacherCurriculum";
 
 export default function StudentsScreen() {
-  const { students, attendanceLabel } = useTeacherStudents();
+   const { primaryClass } = useTeacher();                     // { id, name, ... }
+  const { todayLesson } = useTeacherCurriculum();
+  const {  attendanceLabel } = useTeacherStudents();
+  const {
+    students,
+    summary,
+    isLoading,
+    error,
+    reload,
+  } = useAttendance(primaryClass?.id, todayLesson?.id);
   const { t } = useLanguage();
   const [query, setQuery] = useState("");
-  const summary = useMemo(() => getAttendanceSummary(students), [students]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return students;
-    return students.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.group.toLowerCase().includes(q)
-    );
+    return students.filter((s) => {
+      const name = (s.name ?? "").toLowerCase();
+      const grade = (s.group_name ?? "").toLowerCase();
+      return name.includes(q) || grade.includes(q);
+    });
   }, [query, students]);
+
+
 
   return (
     <Screen>
@@ -55,7 +66,7 @@ export default function StudentsScreen() {
           autoCorrect={false}
         />
       </View>
-
+      {todayLesson ? (
       <SoftCard style={styles.summaryCard}>
         <Text style={styles.summaryTitle}>{t("teacher.todaysAttendance")}</Text>
         <View style={styles.dateRow}>
@@ -64,17 +75,17 @@ export default function StudentsScreen() {
         </View>
         <View style={styles.summaryRow}>
           <SummaryItem
-            value={`${summary.present}`}
+            value={`${summary?.present}`}
             label={t("parent.present")}
             tone="success"
           />
           <SummaryItem
-            value={`${summary.absent}`}
+            value={`${summary?.absent}`}
             label={t("parent.absent")}
             tone="danger"
           />
           <SummaryItem
-            value={`${summary.unmarked}`}
+            value={`${summary?.unrecorded}`}
             label={t("teacher.notMarked")}
             tone="muted"
           />
@@ -85,6 +96,16 @@ export default function StudentsScreen() {
           onPress={() => router.push("/teacher/classes/attendance")}
         />
       </SoftCard>
+       ) :  (
+      <SoftCard style={styles.summaryCard}>
+        <Text style={styles.summaryTitle}>
+          {t("teacher.todaysAttendance")}
+        </Text>
+        <Text style={styles.dateText}>
+          No lesson scheduled for today.
+        </Text>
+      </SoftCard>
+    )}
 
       <SoftCard style={styles.listCard}>
         {filtered.map((student, index) => (
@@ -132,14 +153,14 @@ function StudentRow({
   absentLabel,
   notMarkedLabel,
 }: {
-  student: SundayStudent;
+  student: Student;
   last: boolean;
   presentLabel: string;
   absentLabel: string;
   notMarkedLabel: string;
 }) {
   const status = statusMeta(
-    student.attendance,
+    student,
     presentLabel,
     absentLabel,
     notMarkedLabel
@@ -151,7 +172,7 @@ function StudentRow({
       onPress={() => router.push(`/teacher/classes/student/${student.id}`)}
     >
       <Text style={styles.name}>{student.name}</Text>
-      <Text style={styles.group}>{student.group}</Text>
+      <Text style={styles.group}>{student.groupId}</Text>
       <View style={styles.statusRow}>
         <Ionicons name={status.icon} size={16} color={status.color} />
         <Text style={[styles.statusText, { color: status.color }]}>
@@ -163,19 +184,19 @@ function StudentRow({
 }
 
 function statusMeta(
-  attendance: SundayStudent["attendance"],
+  attendance: AttendanceSummary | Student,
   presentLabel: string,
   absentLabel: string,
   notMarkedLabel: string
 ) {
-  if (attendance === "present") {
+  if ("present" in attendance && attendance.present) {
     return {
       label: presentLabel,
       color: C.success,
       icon: "checkmark-circle" as const,
     };
   }
-  if (attendance === "absent") {
+  if ("absent" in attendance && attendance.absent) {
     return {
       label: absentLabel,
       color: C.danger,

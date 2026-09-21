@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useEffect, useMemo } from "react";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -9,35 +9,88 @@ import {
   PrimaryButton,
 } from "../../../components/parent/ui";
 import { ParentColors as C } from "../../../constants/parentTheme";
-import { useSharedContent } from "../../../contexts/SharedContentContext";
+import { useLanguage } from "../../../contexts/LanguageContext";
+import { useEventsContext } from "@/contexts/EventsContext";
+import { AUDIENCE_LABELS } from "@/data/teacherMock";
 
 export default function ParentEventDetail() {
+  const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { publishedEvents } = useSharedContent();
-  const event =
-    publishedEvents.find((e) => e.id === (Array.isArray(id) ? id[0] : id)) ??
-    publishedEvents[0];
+  const rawId = Array.isArray(id) ? id[0] : id;
 
-  if (!event) {
+  const { events, isLoading, error } = useEventsContext();
+
+  // ---- Resolve the event by ID (no fallback to the wrong one) ----
+  const event = useMemo(
+    () => events.find((e) => String(e.id) === String(rawId)) ?? null,
+    [events, rawId]
+  );
+
+  // ---- Loading guard ---------------------------------------------
+  if (isLoading && !event) {
     return (
       <Screen>
-        <BackHeader title="Event" subtitle="Not found" />
+        <BackHeader title={t("parent.eventTitle")} />
+        <View style={styles.center}>
+          <ActivityIndicator color={C.primary} />
+          <Text style={styles.rowText}>{t("common.loading")}</Text>
+        </View>
       </Screen>
     );
   }
 
+  // ---- Error / not found -----------------------------------------
+  if (error && !event) {
+    return (
+      <Screen>
+        <BackHeader title={t("parent.eventTitle")} />
+        <SoftCard style={styles.card}>
+          <Text style={[styles.body, { color: C.danger }]}>{error}</Text>
+        </SoftCard>
+      </Screen>
+    );
+  }
+
+  if (!event) {
+    return (
+      <Screen>
+        <BackHeader
+          title={t("parent.eventTitle")}
+          subtitle={t("common.notFound")}
+        />
+      </Screen>
+    );
+  }
+
+  // ---- Loaded ----------------------------------------------------
   return (
     <Screen>
-      <BackHeader title={event.title} subtitle={event.audience} />
+      <BackHeader
+        title={event.title}
+        subtitle={
+          AUDIENCE_LABELS[event.audience as keyof typeof AUDIENCE_LABELS] || ""
+        }
+      />
+
       <SoftCard style={styles.card}>
         <Row icon="calendar-outline" label={event.date} />
-        <Row icon="time-outline" label={event.time} />
-        <Row icon="location-outline" label={event.location} />
-        <Text style={styles.label}>About</Text>
-        <Text style={styles.body}>{event.description}</Text>
+        {event.time ? (
+          <Row icon="time-outline" label={event.time} />
+        ) : null}
+        {event.location ? (
+          <Row icon="location-outline" label={event.location} />
+        ) : null}
+
+        {event.description ? (
+          <>
+            <Text style={styles.label}>{t("parent.eventAbout")}</Text>
+            <Text style={styles.body}>{event.description}</Text>
+          </>
+        ) : null}
       </SoftCard>
+
       <PrimaryButton
-        label="Ask Teacher about this event"
+        label={t("parent.askTeacherAboutEvent")}
         icon="chatbubble-outline"
         onPress={() => router.push("/parent/messages")}
       />
@@ -78,4 +131,10 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   body: { marginTop: 6, fontSize: 14, color: C.muted, lineHeight: 21 },
+  center: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    gap: 10,
+  },
 });

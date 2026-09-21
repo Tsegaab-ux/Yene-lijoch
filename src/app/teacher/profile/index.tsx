@@ -1,20 +1,110 @@
 import React from "react";
-import { Text, StyleSheet, Alert } from "react-native";
+import { Text, StyleSheet, Alert, TouchableOpacity, View, Platform } from "react-native";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import {
   Screen,
   SoftCard,
   AvatarBubble,
 } from "../../../components/teacher/ui";
 import { LanguageToggle } from "../../../components/LanguageToggle";
-import { TEACHER, STUDENTS } from "../../../data/teacherMock";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
 import { useLanguage } from "../../../contexts/LanguageContext";
-import { Ionicons } from "@expo/vector-icons";
-import { TouchableOpacity, View } from "react-native";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { useTeacher } from "@/contexts/TeacherContext";
+
+// ------------------------------------------------------------------
+// Cross-platform alert — RN Web no-ops Alert.alert.
+// ------------------------------------------------------------------
+function notify(
+  title: string,
+  message: string,
+  buttons?: { text: string; style?: "cancel" | "destructive" | "default"; onPress?: () => void }[]
+) {
+  if (Platform.OS === "web") {
+    const ok = buttons?.find((b) => b.style !== "cancel");
+    // eslint-disable-next-line no-alert
+    if (window.confirm(`${title}\n\n${message}`)) {
+      ok?.onPress?.();
+    }
+  } else {
+    Alert.alert(title, message, buttons);
+  }
+}
+
+function getInitials(name?: string): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (
+    parts[0].charAt(0).toUpperCase() +
+    parts[parts.length - 1].charAt(0).toUpperCase()
+  );
+}
 
 export default function TeacherProfileScreen() {
   const { t } = useLanguage();
+  const { logout } = useAuthContext();
+  const { teacher, isLoading, error } = useTeacher();
+
+  const handleLogout = () => {
+    notify(
+      t("parent.logout"),
+      t("parent.logout"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("parent.logout"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await logout();
+            } finally {
+              router.replace("/(auth)/login");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // ---- Loading ---------------------------------------------------
+  if (isLoading && !teacher) {
+    return (
+      <Screen>
+        <View style={styles.langRow}>
+          <LanguageToggle tone="dark" />
+        </View>
+        <Text style={styles.title}>{t("teacher.profileTitle")}</Text>
+        <SoftCard style={styles.hero}>
+          <Text style={styles.meta}>{t("common.loading")}</Text>
+        </SoftCard>
+      </Screen>
+    );
+  }
+
+  // ---- Error / not-found -----------------------------------------
+  if (error || !teacher) {
+    return (
+      <Screen>
+        <View style={styles.langRow}>
+          <LanguageToggle tone="dark" />
+        </View>
+        <Text style={styles.title}>{t("teacher.profileTitle")}</Text>
+        <SoftCard style={styles.hero}>
+          <Text style={[styles.meta, { color: C.danger }]}>
+            {error ?? t("teacher.profile.loadError")}
+          </Text>
+        </SoftCard>
+      </Screen>
+    );
+  }
+
+  // ---- Loaded ----------------------------------------------------
+  const studentCount = (teacher.classes ?? []).reduce(
+    (sum, c) => sum + (c.student_count ?? 0),
+    0
+  );
 
   return (
     <Screen>
@@ -23,55 +113,60 @@ export default function TeacherProfileScreen() {
       </View>
 
       <Text style={styles.title}>{t("teacher.profileTitle")}</Text>
-      <Text style={styles.subtitle}>Teacher account and settings</Text>
+      <Text style={styles.subtitle}>{t("teacher.profileSubtitle")}</Text>
 
       <SoftCard style={styles.hero}>
-        <AvatarBubble initials="HB" color={C.primary} size={72} />
-        <Text style={styles.name}>{TEACHER.name}</Text>
-        <Text style={styles.meta}>{TEACHER.title}</Text>
-        <Text style={styles.meta}>
-          {TEACHER.program} · {TEACHER.group}
+        <AvatarBubble
+          initials={getInitials(teacher.full_name)}
+          color={C.primary}
+          size={72}
+        />
+        <Text style={styles.name}>
+          {teacher.full_name || teacher.username}
         </Text>
+
+        {teacher.organization?.name ? (
+          <Text style={styles.meta}>{teacher.organization.name}</Text>
+        ) : null}
+
         <Text style={styles.meta}>
-          {STUDENTS.length} {t("teacher.studentsSub")}
+          {teacher.program || t("teacher.portal")}
+          {teacher.group ? ` · ${teacher.group}` : ""}
         </Text>
+
+        {studentCount > 0 ? (
+          <Text style={styles.meta}>
+            {studentCount} {t("teacher.studentsSub")}
+          </Text>
+        ) : null}
       </SoftCard>
 
       <SoftCard style={{ marginTop: 16 }}>
         <Menu
           icon="person-outline"
-          title="Teacher Information"
+          title={t("teacher.profile.info")}
           onPress={() => router.push("/teacher/profile/info")}
         />
         <Menu
           icon="settings-outline"
-          title="Settings"
+          title={t("teacher.profile.settings")}
           onPress={() => router.push("/teacher/profile/settings")}
         />
         <Menu
           icon="globe-outline"
-          title={t("common.language")}
+          title={t("teacher.profile.language")}
           onPress={() => router.push("/teacher/profile/language")}
         />
         <Menu
           icon="help-circle-outline"
-          title="Help & Support"
+          title={t("teacher.profile.help")}
           onPress={() => router.push("/teacher/profile/help")}
         />
         <Menu
           icon="log-out-outline"
           title={t("parent.logout")}
           danger
-          onPress={() =>
-            Alert.alert(t("parent.logout"), t("parent.logout"), [
-              { text: t("common.cancel"), style: "cancel" },
-              {
-                text: t("parent.logout"),
-                style: "destructive",
-                onPress: () => router.replace("/(auth)/login"),
-              },
-            ])
-          }
+          onPress={handleLogout}
         />
       </SoftCard>
     </Screen>
@@ -94,17 +189,16 @@ function Menu({
       <View style={[styles.menuIcon, danger && { backgroundColor: "#FDECEC" }]}>
         <Ionicons name={icon} size={20} color={danger ? C.danger : C.primary} />
       </View>
-      <Text style={[styles.menuTitle, danger && { color: C.danger }]}>{title}</Text>
+      <Text style={[styles.menuTitle, danger && { color: C.danger }]}>
+        {title}
+      </Text>
       <Ionicons name="chevron-forward" size={18} color={C.muted} />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  langRow: {
-    alignItems: "flex-end",
-    marginBottom: 8,
-  },
+  langRow: { alignItems: "flex-end", marginBottom: 8 },
   title: { fontSize: 28, fontWeight: "700", color: C.text, letterSpacing: -0.4 },
   subtitle: { marginTop: 6, color: C.muted, fontSize: 14, marginBottom: 8 },
   hero: { alignItems: "center", paddingVertical: 24 },

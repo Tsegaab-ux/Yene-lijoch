@@ -1,5 +1,10 @@
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
+import React, { useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+} from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -9,26 +14,44 @@ import {
   MenuRow,
 } from "../../components/admin/ui";
 import { LanguageToggle } from "../../components/LanguageToggle";
-import { ADMIN_PROFILE } from "../../data/sharedContent";
 import { AdminColors as C } from "../../constants/adminTheme";
-import { useSharedContent } from "../../contexts/SharedContentContext";
 import { useChat } from "../../contexts/ChatContext";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { useNotifications } from "@/contexts/NotificationContext";
+import { useStats } from "@/hooks/useStats";
+import { notify } from "@/utils/notify";
 
 export default function AdminHome() {
+  const { logout, user } = useAuthContext();
   const { t } = useLanguage();
-  const {
-    media,
-    curriculum,
-    students,
-    groups,
-    events,
-    adminNotices,
-  } = useSharedContent();
   const { teacherMessages } = useChat();
-  const unread =
-    adminNotices.filter((n) => n.unread).length +
-    teacherMessages.slice(0, 5).length;
+  const { unreadCount, notifications } = useNotifications();
+
+  // Aggregated counts for the four stat cards.
+  const { totals, stats } = useStats();
+
+  // Latest notifications for the "Recent Activity" section.
+  const recent = (notifications ?? []).slice(0, 4);
+
+  const handleLogout = () => {
+    notify(t("admin.logout"), t("admin.logout"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("admin.logout"),
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await logout();
+          } finally {
+            router.replace("/(auth)/login");
+          }
+        },
+      },
+    ]);
+  };
+
+  const schoolName = user?.organizationName ?? ""; // see note below
 
   return (
     <Screen>
@@ -36,9 +59,9 @@ export default function AdminHome() {
         <View style={{ flex: 1 }}>
           <Text style={styles.kicker}>{t("admin.portal")}</Text>
           <Text style={styles.title}>
-            {t("admin.hi", { name: ADMIN_PROFILE.name.split(" ")[0] })}
+            {t("admin.hi", { name: user?.username || "" })}
           </Text>
-          <Text style={styles.sub}>{ADMIN_PROFILE.school}</Text>
+          {schoolName ? <Text style={styles.sub}>{schoolName}</Text> : null}
         </View>
         <View style={styles.headerActions}>
           <LanguageToggle tone="dark" />
@@ -47,16 +70,19 @@ export default function AdminHome() {
             onPress={() => router.push("/admin/notifications" as any)}
           >
             <Ionicons name="notifications-outline" size={20} color={C.text} />
-            {unread > 0 ? <View style={styles.dot} /> : null}
+            {unreadCount > 0 ? <View style={styles.dot} /> : null}
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.stats}>
-        <Stat label={t("tabs.videos")} value={`${media.length}`} />
-        <Stat label={t("parent.lessons")} value={`${curriculum.length}`} />
-        <Stat label={t("teacher.studentsSub")} value={`${students.length}`} />
-        <Stat label={t("admin.events")} value={`${events.length}`} />
+        <Stat label={t("tabs.videos")} value={`${stats?.media ?? 0}`} />
+        <Stat label={t("parent.lessons")} value={`${stats?.curriculum ?? 0}`} />
+        <Stat
+          label={t("teacher.studentsSub")}
+          value={`${stats?.students ?? 0}`}
+        />
+        <Stat label={t("admin.events")} value={`${stats?.events ?? 0}`} />
       </View>
 
       <SectionLabel title={t("admin.manageContent")} />
@@ -94,28 +120,29 @@ export default function AdminHome() {
       </SoftCard>
 
       <SectionLabel title={t("admin.recentActivity")} />
-      {adminNotices.slice(0, 4).map((n) => (
-        <SoftCard key={n.id} style={styles.notice}>
-          <Text style={styles.noticeTitle}>{n.title}</Text>
-          <Text style={styles.noticeBody}>{n.body}</Text>
-          <Text style={styles.noticeTime}>{n.time}</Text>
-        </SoftCard>
-      ))}
 
-      <SoftCard
-        style={{ marginTop: 8 }}
-        onPress={() =>
-          Alert.alert(t("admin.logout"), t("admin.logout"), [
-            { text: t("common.cancel"), style: "cancel" },
-            {
-              text: t("admin.logout"),
-              style: "destructive",
-              onPress: () => router.replace("/(auth)/login"),
-            },
-          ])
-        }
-      >
-        <Text style={styles.logout}>{t("admin.logout")}</Text>
+      {recent.length === 0 ? (
+        <SoftCard style={styles.notice}>
+          <Text style={styles.noticeBody}>{t("admin.noRecentActivity")}</Text>
+        </SoftCard>
+      ) : (
+        recent.map((n) => (
+          <SoftCard key={n.id} style={styles.notice}>
+            <Text style={styles.noticeTitle}>{n.title ?? ""}</Text>
+            <Text style={styles.noticeBody}>{n.body ?? ""}</Text>
+            <Text style={styles.noticeTime}>
+              {n.created_at
+                ? new Date(n.created_at).toLocaleString()
+                : ""}
+            </Text>
+          </SoftCard>
+        ))
+      )}
+
+      <SoftCard style={{ marginTop: 8 }}>
+        <TouchableOpacity style={styles.logout} onPress={handleLogout}>
+          <Text style={styles.logoutText}>{t("admin.logout")}</Text>
+        </TouchableOpacity>
       </SoftCard>
     </Screen>
   );
@@ -136,10 +163,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 16,
   },
-  headerActions: {
-    alignItems: "flex-end",
-    gap: 8,
-  },
+  headerActions: { alignItems: "flex-end", gap: 8 },
   kicker: {
     color: C.muted,
     fontSize: 12,
@@ -188,7 +212,8 @@ const styles = StyleSheet.create({
   noticeTitle: { fontWeight: "800", color: C.text, fontSize: 14 },
   noticeBody: { marginTop: 4, color: C.muted, fontSize: 13, lineHeight: 18 },
   noticeTime: { marginTop: 6, color: C.muted, fontSize: 11 },
-  logout: {
+  logout: { alignItems: "center", justifyContent: "center" },
+  logoutText: {
     textAlign: "center",
     color: C.danger,
     fontWeight: "800",

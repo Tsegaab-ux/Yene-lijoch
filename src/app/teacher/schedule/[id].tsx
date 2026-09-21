@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Text, StyleSheet } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import {
@@ -7,16 +7,17 @@ import {
   BackHeader,
   SectionLabel,
 } from "../../../components/teacher/ui";
-import {
-  useTeacherEvents,
-  AUDIENCE_LABELS,
-} from "../../../contexts/TeacherEventsContext";
+import { useEventsContext } from "../../../contexts/EventsContext";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
+import { AUDIENCE_LABELS } from "@/data/teacherMock";
 
 export default function EventDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getEvent } = useTeacherEvents();
-  const event = getEvent(id);
+  const { event, fetchEvent } = useEventsContext();
+
+  useEffect(()=> {
+    fetchEvent(id);
+  },[]);
 
   return (
     <Screen>
@@ -24,20 +25,24 @@ export default function EventDetails() {
 
       <SoftCard>
         <Text style={styles.kicker}>Upcoming</Text>
-        <Text style={styles.title}>{event.title}</Text>
-        <Text style={styles.meta}>{event.date}</Text>
-        <Text style={styles.meta}>{event.time}</Text>
-        <Text style={styles.location}>{event.location}</Text>
+        <Text style={styles.title}>{event?.title}</Text>
+        <Text style={styles.meta}>{event?.date}</Text>
+        <Text style={styles.meta}>{event?.time}</Text>
+        <Text style={styles.location}>{event?.location}</Text>
       </SoftCard>
 
       <SectionLabel title="Audience" />
       <SoftCard>
-        <Text style={styles.body}>{AUDIENCE_LABELS[event.audience]}</Text>
+        <Text style={styles.body}>
+          {event?.audience
+            ? AUDIENCE_LABELS[event.audience as keyof typeof AUDIENCE_LABELS]
+            : ""}
+        </Text>
       </SoftCard>
 
       <SectionLabel title="Description" />
       <SoftCard>
-        <Text style={styles.body}>{event.description}</Text>
+        <Text style={styles.body}>{event?.description}</Text>
       </SoftCard>
     </Screen>
   );

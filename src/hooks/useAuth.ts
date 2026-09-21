@@ -14,10 +14,11 @@ import {
 import { toast } from "sonner";
 import { AuthContext, AuthState, User } from "../types/authTypes";
 import { useRouter } from "expo-router";
+import { useRoleNavigation } from "./useRoleNavigation";
 
 export function useAuth(): AuthContext {
   const router = useRouter();
-  
+  const { navigateBasedOnRole, getDashboardRoute } = useRoleNavigation()
   const [state, setState] = useState<AuthState>({
     user: null,
     isLoading: true,
@@ -77,35 +78,10 @@ export function useAuth(): AuthContext {
     checkAuth();
   }, []);
 
-  // Auto-refresh token before expiry
-  useEffect(() => {
-    if (!state.isAuthenticated || !state.accessToken) return;
-
-    const token = decodeToken(state.accessToken);
-    if (!token) return;
-
-    const expiresIn = token.exp * 1000 - Date.now();
-    const refreshThreshold = 5 * 60 * 1000; // Refresh 5 minutes before expiry
-
-    if (expiresIn < refreshThreshold) {
-      // Token is about to expire, refresh it
-      refreshSession();
-    }
-
-    // Set interval to check token expiry
-    const interval = setInterval(() => {
-      if (isTokenExpired(state.accessToken!)) {
-        refreshSession();
-      }
-    }, 60000); // Check every minute
-
-    return () => clearInterval(interval);
-  }, [state.isAuthenticated, state.accessToken]);
-
   // Fetch current user from API
   const fetchCurrentUser = useCallback(async (): Promise<User | null> => {
     try {
-      const response = await api.get("/user/");
+      const response = await api.get("/users/me/");
       return response.data;
     } catch (error) {
       console.error("Failed to fetch user:", error);
@@ -142,9 +118,7 @@ export function useAuth(): AuthContext {
         });
 
         toast.success("Login successful!");
-        
-        // Redirect to chat
-        router.push("/");
+        navigateBasedOnRole(user);
       } catch (error: any) {
         console.error("Login error:", error);
         // Redirect to login page
@@ -195,8 +169,6 @@ export function useAuth(): AuthContext {
 
         toast.success("Registration successful!");
         
-        // Redirect to chat
-        router.push("/");
       } catch (error: any) {
         console.error("Registration error:", error);
         // Redirect to signup page

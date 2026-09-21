@@ -8,12 +8,12 @@ import {
   SectionLabel,
   PrimaryButton,
 } from "../../../components/teacher/ui";
-import { useTeacherEvents } from "../../../contexts/TeacherEventsContext";
+import { useEventsContext } from "../../../contexts/EventsContext";
 import { TeacherColors as C } from "../../../constants/teacherTheme";
 import { useLanguage } from "../../../contexts/LanguageContext";
 
 export default function EventsScreen() {
-  const { events } = useTeacherEvents();
+  const { events, isLoading, error } = useEventsContext();
   const { t } = useLanguage();
 
   return (
@@ -23,6 +23,28 @@ export default function EventsScreen() {
 
       <SectionLabel title={t("teacher.upcoming")} />
 
+      {/* Loading — only show the spinner on first load, not on refresh */}
+      {isLoading && events.length === 0 ? (
+        <SoftCard style={styles.card}>
+          <Text style={styles.meta}>Loading events…</Text>
+        </SoftCard>
+      ) : null}
+
+      {/* Error — only if there's nothing to show */}
+      {error && events.length === 0 ? (
+        <SoftCard style={styles.card}>
+          <Text style={[styles.meta, { color: C.danger }]}>{error}</Text>
+        </SoftCard>
+      ) : null}
+
+      {/* Empty state */}
+      {!isLoading && !error && events.length === 0 ? (
+        <SoftCard style={styles.card}>
+          <Text style={styles.meta}>No events scheduled yet.</Text>
+        </SoftCard>
+      ) : null}
+
+      {/* List */}
       {events.map((event) => (
         <SoftCard
           key={event.id}

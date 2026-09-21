@@ -1,0 +1,58 @@
+1. Install packages:
+   npx expo install expo-notifications expo-device expo-constants
+
+2. app.json / app.config.js -- add the EAS project id (needed for
+   getExpoPushTokenAsync) and the notifications plugin:
+
+   {
+     "expo": {
+       "extra": { "eas": { "projectId": "<your-eas-project-id>" } },
+       "plugins": [
+         [
+           "expo-notifications",
+           {
+             "icon": "./assets/notification-icon.png",
+             "color": "#ffffff"
+           }
+         ]
+       ]
+     }
+   }
+
+3. Mount the provider inside your root layout, INSIDE whatever auth
+   provider guarantees a logged-in user + a working clientApi token
+   (registering a push token / fetching notifications requires auth):
+
+   // src/app/_layout.tsx
+   import { NotificationProvider } from "../contexts/NotificationContext";
+
+   export default function RootLayout() {
+     return (
+       <AuthProvider>
+         <NotificationProvider>
+           <ChatProvider>
+             {/* ... rest of the app ... */}
+           </ChatProvider>
+         </NotificationProvider>
+       </AuthProvider>
+     );
+   }
+
+4. Show the unread badge anywhere, e.g. on a tab icon:
+
+   const { unreadCount } = useNotifications();
+   <Tabs.Screen
+     name="notifications"
+     options={{ tabBarBadge: unreadCount || undefined }}
+   />
+
+5. Push notifications from Expo Go are NOT supported on SDK 53+ for
+   Android; you'll need a development build (`eas build --profile
+   development`) to test push end-to-end. In-app notifications
+   (the list/badge/mark-read flow) work fine in Expo Go regardless.
+
+6. This does NOT yet notify the *other side's* WebSocket-open chat
+   screen (that's already live via openConversationSocket) -- it's
+   specifically for when the recipient is NOT actively looking at the
+   thread (app backgrounded/closed, or on a different screen), which is
+   what push + the notifications list are for.

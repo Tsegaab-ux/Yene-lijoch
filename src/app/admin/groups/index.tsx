@@ -5,6 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Platform,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -17,9 +19,9 @@ import {
   SectionLabel,
 } from "../../../components/admin/ui";
 import { AdminColors as C } from "../../../constants/adminTheme";
-import { useSharedContent } from "../../../contexts/SharedContentContext";
-import { confirmAction, notify } from "../../../utils/mediaPicker";
+import { useClassrooms } from "@/hooks/useClassrooms";
 import { useLanguage } from "../../../contexts/LanguageContext";
+import { notify } from "@/utils/notify";
 
 type DraftStudent = {
   key: string;
@@ -41,17 +43,35 @@ function emptyDraft(): DraftStudent {
   };
 }
 
+// Cross-platform confirm dialog.
+function confirm(title: string, message: string): Promise<boolean> {
+  if (Platform.OS === "web") {
+    return Promise.resolve(window.confirm(`${title}\n\n${message}`));
+  }
+  return new Promise((resolve) => {
+    Alert.alert(title, message, [
+      { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+      { text: "Delete", style: "destructive", onPress: () => resolve(true) },
+    ]);
+  });
+}
+
 export default function AdminGroupsScreen() {
-  const {
-    groups,
-    students,
-    addGroup,
-    removeGroup,
-    addStudent,
-    removeStudent,
-    getStudentsByGroup,
-  } = useSharedContent();
   const { t } = useLanguage();
+  const {
+    classrooms: groups,
+    isLoading,
+    fetchClassrooms,
+    addClassroom,
+    deleteClassroom,
+    addStudentToClass,
+    removeStudentFromClass,
+  } = useClassrooms();
+
+  // Fetch once on mount.
+  useEffect(() => {
+    fetchClassrooms();
+  }, [fetchClassrooms]);
 
   const [showCreate, setShowCreate] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState(false);
@@ -60,15 +80,18 @@ export default function AdminGroupsScreen() {
   const [teacherName, setTeacherName] = useState("Hana Bekele");
   const [drafts, setDrafts] = useState<DraftStudent[]>([emptyDraft()]);
 
-  const [targetGroupId, setTargetGroupId] = useState(groups[0]?.id ?? "");
+  const [targetGroupId, setTargetGroupId] = useState<number | string>(
+    groups[0]?.id ?? ""
+  );
   const [studentName, setStudentName] = useState("");
   const [grade, setGrade] = useState("Grade 3");
   const [age, setAge] = useState("8");
   const [parentName, setParentName] = useState("");
   const [parentEmail, setParentEmail] = useState("parent@test.com");
 
+  // Sync the "add student to which group" picker if the group list changes.
   useEffect(() => {
-    if (!groups.find((g) => g.id === targetGroupId) && groups[0]) {
+    if (!groups.find((g) => String(g.id) === String(targetGroupId)) && groups[0]) {
       setTargetGroupId(groups[0].id);
     }
   }, [groups, targetGroupId]);
@@ -79,70 +102,122 @@ export default function AdminGroupsScreen() {
     );
   };
 
-  const handleCreateGroupWithStudents = () => {
+  // ------------------------------------------------------------------
+  // Create group with students
+  // ------------------------------------------------------------------
+  const handleCreateGroupWithStudents = async () => {
     if (!groupName.trim()) {
-      notify("Missing group name", "Enter a name for the new group.");
+      notify(t("common.error"), t("admin.groupNameRequired"));
       return;
     }
 
     const validStudents = drafts.filter((d) => d.name.trim());
-    const created = addGroup(groupName, teacherName);
 
-    validStudents.forEach((d) => {
-      addStudent({
-        name: d.name.trim(),
-        groupId: created.id,
-        grade: d.grade.trim() || "Grade 1",
-        age: Number(d.age) || 6,
-        parentName: d.parentName.trim() || "Parent",
-        parentEmail: d.parentEmail.trim() || "parent@test.com",
+    try {
+      const created = await addClassroom({
+        name: groupName.trim(),
+        teacherName: teacherName.trim() || undefined,
+        students: validStudents.map((d) => ({
+          name: d.name.trim(),
+          grade: d.grade.trim() || "Grade 1",
+          age: Number(d.age) || 6,
+          parentName: d.parentName.trim() || "Parent",
+          parentEmail: d.parentEmail.trim() || "parent@test.com",
+        })),
       });
-    });
 
-    setTargetGroupId(created.id);
-    setGroupName("");
-    setTeacherName("Hana Bekele");
-    setDrafts([emptyDraft()]);
-    setShowCreate(false);
-    notify(
-      "Group saved",
-      `${created.name} created with ${validStudents.length} student${
-        validStudents.length === 1 ? "" : "s"
-      }.`
-    );
+      setTargetGroupId(created.id);
+      setGroupName("");
+      setTeacherName("Hana Bekele");
+      setDrafts([emptyDraft()]);
+      setShowCreate(false);
+
+      notify(
+        t("common.success"),
+        t("admin.groupCreated", {
+          name: created.name,
+          count: validStudents.length,
+        })
+      );
+    } catch (err: any) {
+      notify(t("common.error"), String(err));
+    }
   };
 
-  const handleAddStudentToExisting = () => {
+  // ------------------------------------------------------------------
+  // Add student to an existing group
+  // ------------------------------------------------------------------
+  const handleAddStudentToExisting = async () => {
     if (!studentName.trim()) {
-      notify("Missing name", "Enter the student name.");
+      notify(t("common.error"), t("admin.studentNameRequired"));
       return;
     }
     if (!targetGroupId) {
-      notify("No group", "Create a group first, then add students.");
+      notify(t("common.error"), t("admin.createGroupFirst"));
       return;
     }
 
-    addStudent({
-      name: studentName.trim(),
-      groupId: targetGroupId,
-      grade: grade.trim() || "Grade 1",
-      age: Number(age) || 6,
-      parentName: parentName.trim() || "Parent",
-      parentEmail: parentEmail.trim() || "parent@test.com",
-    });
+    try {
+      await addStudentToClass(targetGroupId, {
+        name: studentName.trim(),
+        grade: grade.trim() || "Grade 1",
+        age: Number(age) || 6,
+        parentName: parentName.trim() || "Parent",
+        parentEmail: parentEmail.trim() || "parent@test.com",
+      });
 
-    setStudentName("");
-    setParentName("");
-    setShowAddStudent(false);
-    notify("Student added", "Added to the selected group.");
+      setStudentName("");
+      setParentName("");
+      setShowAddStudent(false);
+      notify(t("common.success"), t("admin.studentAddedToGroup"));
+    } catch (err: any) {
+      notify(t("common.error"), String(err));
+    }
   };
+
+  // ------------------------------------------------------------------
+  // Remove student
+  // ------------------------------------------------------------------
+  const handleRemoveStudent = async (groupId: number | string, studentId: number | string, name: string) => {
+    const ok = await confirm(t("admin.removeStudentTitle"), name);
+    if (!ok) return;
+    try {
+      await removeStudentFromClass(groupId, studentId);
+      notify(t("common.success"), name);
+    } catch (err: any) {
+      notify(t("common.error"), String(err));
+    }
+  };
+
+  // ------------------------------------------------------------------
+  // Delete group
+  // ------------------------------------------------------------------
+  const handleDeleteGroup = async (groupId: number | string, name: string) => {
+    const ok = await confirm(
+      t("admin.deleteGroupTitle"),
+      t("admin.deleteGroupBody", { name })
+    );
+    if (!ok) return;
+    try {
+      await deleteClassroom(groupId);
+      notify(t("common.success"), name);
+    } catch (err: any) {
+      notify(t("common.error"), String(err));
+    }
+  };
+
+  // Total student count across all groups (approximate — sums rosters).
+  const totalStudents = groups.reduce(
+    (sum, g) => sum + (g.roster?.length ?? g.student_count ?? 0),
+    0
+  );
 
   return (
     <Screen>
       <TopBar
         title={t("admin.groupsTitle")}
         subtitle={t("admin.groupsSub")}
-        actionLabel={showCreate ? t("common.close") : "+ Group"}
+        actionLabel={showCreate ? t("common.close") : `+ ${t("admin.group")}`}
         onAction={() => {
           setShowCreate((v) => !v);
           setShowAddStudent(false);
@@ -174,32 +249,34 @@ export default function AdminGroupsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* ---------- Create group form ---------- */}
       {showCreate ? (
         <SoftCard style={{ marginBottom: 14 }}>
-          <Text style={styles.formTitle}>Create group</Text>
+          <Text style={styles.formTitle}>{t("admin.createGroupTitle")}</Text>
           <Field
-            label="Group name"
+            label={t("admin.groupName")}
             value={groupName}
             onChangeText={setGroupName}
-            placeholder="e.g. Group C"
+            placeholder={t("admin.groupNamePlaceholder")}
           />
           <Field
-            label="Teacher name"
+            label={t("admin.teacherName")}
             value={teacherName}
             onChangeText={setTeacherName}
-            placeholder="Teacher for this group"
+            placeholder={t("admin.teacherNamePlaceholder")}
           />
 
-          <Text style={styles.section}>Students in this group</Text>
-          <Text style={styles.hint}>
-            Add one or more students now. You can leave rows empty if you only
-            want the group.
+          <Text style={styles.section}>
+            {t("admin.studentsInThisGroup")}
           </Text>
+          <Text style={styles.hint}>{t("admin.studentsInThisGroupHint")}</Text>
 
           {drafts.map((draft, index) => (
             <View key={draft.key} style={styles.draftCard}>
               <View style={styles.draftHeader}>
-                <Text style={styles.draftTitle}>Student {index + 1}</Text>
+                <Text style={styles.draftTitle}>
+                  {t("admin.studentNumber", { n: index + 1 })}
+                </Text>
                 {drafts.length > 1 ? (
                   <TouchableOpacity
                     onPress={() =>
@@ -213,34 +290,34 @@ export default function AdminGroupsScreen() {
                 ) : null}
               </View>
               <Field
-                label="Student name"
+                label={t("admin.studentName")}
                 value={draft.name}
                 onChangeText={(name) => updateDraft(draft.key, { name })}
-                placeholder="e.g. Ruth Bekele"
+                placeholder={t("admin.studentNamePlaceholder")}
               />
               <Field
-                label="Grade"
+                label={t("admin.grade")}
                 value={draft.grade}
                 onChangeText={(gradeValue) =>
                   updateDraft(draft.key, { grade: gradeValue })
                 }
               />
               <Field
-                label="Age"
+                label={t("admin.age")}
                 value={draft.age}
                 onChangeText={(ageValue) =>
                   updateDraft(draft.key, { age: ageValue })
                 }
               />
               <Field
-                label="Parent name"
+                label={t("admin.parentName")}
                 value={draft.parentName}
                 onChangeText={(parentNameValue) =>
                   updateDraft(draft.key, { parentName: parentNameValue })
                 }
               />
               <Field
-                label="Parent email"
+                label={t("admin.parentEmail")}
                 value={draft.parentEmail}
                 onChangeText={(parentEmailValue) =>
                   updateDraft(draft.key, { parentEmail: parentEmailValue })
@@ -254,27 +331,31 @@ export default function AdminGroupsScreen() {
             onPress={() => setDrafts((prev) => [...prev, emptyDraft()])}
           >
             <Ionicons name="add-circle-outline" size={18} color={C.primary} />
-            <Text style={styles.addRowText}>Add another student</Text>
+            <Text style={styles.addRowText}>
+              {t("admin.addAnotherStudent")}
+            </Text>
           </TouchableOpacity>
 
           <PrimaryButton
-            label="Save group & students"
+            label={t("admin.saveGroupAndStudents")}
             icon="checkmark-circle-outline"
             onPress={handleCreateGroupWithStudents}
+            disabled={false}
           />
         </SoftCard>
       ) : null}
 
+      {/* ---------- Add student to existing group ---------- */}
       {showAddStudent ? (
         <SoftCard style={{ marginBottom: 14 }}>
-          <Text style={styles.formTitle}>Add student to existing group</Text>
+          <Text style={styles.formTitle}>
+            {t("admin.addStudentToExisting")}
+          </Text>
           {groups.length === 0 ? (
-            <Text style={styles.hint}>
-              No groups yet. Create a group first.
-            </Text>
+            <Text style={styles.hint}>{t("admin.noGroupsYet")}</Text>
           ) : (
             <>
-              <Text style={styles.label}>Choose group</Text>
+              <Text style={styles.label}>{t("admin.chooseGroup")}</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -284,25 +365,25 @@ export default function AdminGroupsScreen() {
                   <Pill
                     key={g.id}
                     label={g.name}
-                    active={targetGroupId === g.id}
+                    active={String(targetGroupId) === String(g.id)}
                     onPress={() => setTargetGroupId(g.id)}
                   />
                 ))}
               </ScrollView>
               <Field
-                label="Student name"
+                label={t("admin.studentName")}
                 value={studentName}
                 onChangeText={setStudentName}
               />
-              <Field label="Grade" value={grade} onChangeText={setGrade} />
-              <Field label="Age" value={age} onChangeText={setAge} />
+              <Field label={t("admin.grade")} value={grade} onChangeText={setGrade} />
+              <Field label={t("admin.age")} value={age} onChangeText={setAge} />
               <Field
-                label="Parent name"
+                label={t("admin.parentName")}
                 value={parentName}
                 onChangeText={setParentName}
               />
               <Field
-                label="Parent email"
+                label={t("admin.parentEmail")}
                 value={parentEmail}
                 onChangeText={setParentEmail}
               />
@@ -310,6 +391,7 @@ export default function AdminGroupsScreen() {
                 label={t("admin.addStudent")}
                 icon="person-add-outline"
                 onPress={handleAddStudentToExisting}
+                disabled={false}
               />
             </>
           )}
@@ -317,26 +399,36 @@ export default function AdminGroupsScreen() {
       ) : null}
 
       <SectionLabel
-        title={`${groups.length} groups · ${students.length} students`}
+        title={t("admin.groupsSummary", {
+          groups: groups.length,
+          students: totalStudents,
+        })}
       />
 
-      {groups.length === 0 ? (
+      {isLoading && groups.length === 0 ? (
         <SoftCard>
-          <Text style={styles.empty}>
-            No groups yet. Tap “+ Group” to create one and add students.
-          </Text>
+          <Text style={styles.empty}>{t("common.loading")}</Text>
+        </SoftCard>
+      ) : null}
+
+      {!isLoading && groups.length === 0 ? (
+        <SoftCard>
+          <Text style={styles.empty}>{t("admin.noGroupsHint")}</Text>
         </SoftCard>
       ) : null}
 
       {groups.map((group) => {
-        const roster = getStudentsByGroup(group.id);
+        const roster = group.roster ?? [];
         return (
           <SoftCard key={group.id} style={styles.card}>
             <View style={styles.groupHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.groupTitle}>{group.name}</Text>
                 <Text style={styles.meta}>
-                  Teacher: {group.teacherName} · {roster.length} students
+                  {t("admin.groupMeta", {
+                    teacher: group.teacherName ?? "",
+                    count: roster.length || group.student_count || 0,
+                  })}
                 </Text>
               </View>
               <TouchableOpacity
@@ -351,16 +443,7 @@ export default function AdminGroupsScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.iconBtn}
-                onPress={() =>
-                  confirmAction(
-                    "Delete group?",
-                    `${group.name} and its students will be removed.`,
-                    () => {
-                      removeGroup(group.id);
-                      notify("Group deleted", group.name);
-                    }
-                  )
-                }
+                onPress={() => handleDeleteGroup(group.id, group.name)}
               >
                 <Ionicons name="trash-outline" size={18} color={C.danger} />
               </TouchableOpacity>
@@ -377,10 +460,7 @@ export default function AdminGroupsScreen() {
                 <TouchableOpacity
                   style={styles.removeChip}
                   onPress={() =>
-                    confirmAction("Remove student?", student.name, () => {
-                      removeStudent(student.id);
-                      notify("Removed", student.name);
-                    })
+                    handleRemoveStudent(group.id, student.id, student.name)
                   }
                 >
                   <Text style={styles.removeText}>{t("common.remove")}</Text>
@@ -389,7 +469,7 @@ export default function AdminGroupsScreen() {
             ))}
 
             {roster.length === 0 ? (
-              <Text style={styles.empty}>No students in this group yet</Text>
+              <Text style={styles.empty}>{t("admin.noStudentsInGroup")}</Text>
             ) : null}
           </SoftCard>
         );
@@ -412,10 +492,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
   },
-  quickPrimary: {
-    backgroundColor: C.primary,
-    borderColor: C.primary,
-  },
+  quickPrimary: { backgroundColor: C.primary, borderColor: C.primary },
   quickText: { color: C.primary, fontWeight: "800", fontSize: 12 },
   quickPrimaryText: { color: "#fff", fontWeight: "800", fontSize: 12 },
   formTitle: {
@@ -431,12 +508,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: C.text,
   },
-  hint: {
-    color: C.muted,
-    fontSize: 12,
-    lineHeight: 17,
-    marginBottom: 10,
-  },
+  hint: { color: C.muted, fontSize: 12, lineHeight: 17, marginBottom: 10 },
   label: {
     fontWeight: "700",
     color: C.text,
@@ -467,11 +539,7 @@ const styles = StyleSheet.create({
   },
   addRowText: { color: C.primary, fontWeight: "800", fontSize: 13 },
   card: { marginBottom: 12 },
-  groupHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
+  groupHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
   groupTitle: { fontSize: 17, fontWeight: "800", color: C.text },
   meta: { marginTop: 3, fontSize: 12, color: C.muted },
   iconBtn: {

@@ -1,22 +1,99 @@
-import React, { useState } from "react";
-import { Text, StyleSheet, TextInput, TouchableOpacity, Alert } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import { router } from "expo-router";
 import { Screen, TopBar, Card } from "../../../components/parent/ui";
-import { PARENT } from "../../../data/parentMock";
 import { ParentColors as C } from "../../../constants/parentTheme";
+import { useLanguage } from "../../../contexts/LanguageContext";
+import { useSelectedChild } from "../../../contexts/SelectedChildContext";
+import { notify } from "@/utils/notify";
+import { api } from "@/services/api";
 
 export default function ParentProfileScreen() {
-  const [name, setName] = useState(PARENT.name);
-  const [email, setEmail] = useState(PARENT.email);
-  const [phone, setPhone] = useState(PARENT.phone);
+  const { t } = useLanguage();
+  const { parent, refetch } = useSelectedChild();
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Fill the form once the parent object arrives.
+  useEffect(() => {
+    if (parent) {
+      setName(parent.full_name ?? "");
+      setEmail(parent.email ?? "");
+      setPhone(parent.contact ?? "");
+    }
+  }, [parent]);
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      notify(t("common.error"), t("parent.profileForm.nameRequired"));
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await api.patch("/parents/me/", {
+        full_name: name.trim(),
+        email: email.trim() || undefined,
+        contact: phone.trim() || undefined,
+      });
+      await refetch();
+      notify(
+        t("parent.profileForm.saved"),
+        t("parent.profileForm.savedBody")
+      );
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.detail ??
+        err?.message ??
+        t("common.error");
+      notify(t("common.error"), String(message));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ---- Loading guard (before the form renders) -------------------
+  if (!parent) {
+    return (
+      <Screen>
+        <TopBar
+          title={t("parent.profileForm.title")}
+          showBell={false}
+          onBack={() => router.back()}
+        />
+        <Card>
+          <ActivityIndicator color={C.primary} />
+        </Card>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
-      <TopBar title="Parent Profile" showBell={false} onBack={() => router.back()} />
+      <TopBar
+        title={t("parent.profileForm.title")}
+        showBell={false}
+        onBack={() => router.back()}
+      />
+
       <Card>
-        <Text style={styles.label}>Full name</Text>
-        <TextInput style={styles.input} value={name} onChangeText={setName} />
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>{t("parent.profileForm.fullName")}</Text>
+        <TextInput
+          style={styles.input}
+          value={name}
+          onChangeText={setName}
+        />
+
+        <Text style={styles.label}>{t("parent.profileForm.email")}</Text>
         <TextInput
           style={styles.input}
           value={email}
@@ -24,7 +101,8 @@ export default function ParentProfileScreen() {
           autoCapitalize="none"
           keyboardType="email-address"
         />
-        <Text style={styles.label}>Phone</Text>
+
+        <Text style={styles.label}>{t("parent.profileForm.phone")}</Text>
         <TextInput
           style={styles.input}
           value={phone}
@@ -32,11 +110,17 @@ export default function ParentProfileScreen() {
           keyboardType="phone-pad"
         />
       </Card>
+
       <TouchableOpacity
-        style={styles.button}
-        onPress={() => Alert.alert("Saved", "Parent profile details were updated.")}
+        style={[styles.button, isSaving && { opacity: 0.6 }]}
+        onPress={handleSave}
+        disabled={isSaving}
       >
-        <Text style={styles.buttonText}>Save changes</Text>
+        <Text style={styles.buttonText}>
+          {isSaving
+            ? t("parent.profileForm.saving")
+            : t("parent.profileForm.save")}
+        </Text>
       </TouchableOpacity>
     </Screen>
   );

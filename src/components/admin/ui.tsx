@@ -12,7 +12,6 @@ import {
   TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { AdminColors as C } from "../../constants/adminTheme";
 
 export function Screen({
@@ -106,9 +105,11 @@ export function PrimaryButton({
   label,
   onPress,
   icon,
+  disabled
 }: {
   label: string;
   onPress: () => void;
+  disabled: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
 }) {
   return (
