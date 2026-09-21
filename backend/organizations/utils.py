@@ -97,7 +97,3 @@ def get_user_teacher(user):
         return teacher
     profile = getattr(user, "profile", None)
     return getattr(profile, "teacher_profile", None) if profile else None
-<<<<<<< HEAD
-
-=======
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
