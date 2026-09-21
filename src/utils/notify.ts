@@ -1,24 +1,28 @@
-// utils/notify.ts
 import { Alert, Platform } from "react-native";
 
-type NotifyButton = {
-  text: string;
-  style?: "cancel" | "destructive" | "default";
-  onPress?: () => void;
-};
+/** Alert.alert is unreliable on web — fall back to window.alert. */
+export function notify(title: string, message?: string) {
+  const text = message ? `${title}\n\n${message}` : title;
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    window.alert(text);
+    return;
+  }
+  Alert.alert(title, message);
+}
 
-export function notify(
+export function notifyConfirm(
   title: string,
   message: string,
-  buttons?: NotifyButton[]
+  confirmLabel: string,
+  onConfirm: () => void
 ) {
-  if (Platform.OS === "web") {
-    const ok = buttons?.find((b) => b.style !== "cancel");
+  if (Platform.OS === "web" && typeof window !== "undefined") {
     // eslint-disable-next-line no-alert
-    if (window.confirm(`${title}\n\n${message}`)) {
-      ok?.onPress?.();
-    }
-  } else {
-    Alert.alert(title, message, buttons);
+    if (window.confirm(`${title}\n\n${message}`)) onConfirm();
+    return;
   }
+  Alert.alert(title, message, [
+    { text: "Cancel", style: "cancel" },
+    { text: confirmLabel, onPress: onConfirm },
+  ]);
 }
