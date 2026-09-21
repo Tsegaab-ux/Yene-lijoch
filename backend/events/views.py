@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # events/views.py
 import logging
 
@@ -17,15 +16,6 @@ from organizations.utils import (
     is_admin,
     is_superuser,
 )
-=======
-from django.shortcuts import get_object_or_404
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
 
 from .models import Event
 from .serializers import (
@@ -35,7 +25,6 @@ from .serializers import (
 )
 from .services.event_notification_service import EventNotificationService
 
-<<<<<<< HEAD
 logger = logging.getLogger(__name__)
 
 
@@ -45,35 +34,13 @@ logger = logging.getLogger(__name__)
 
 def base_queryset():
     return Event.objects.select_related("organization", "created_by")
-=======
-from organizations.utils import (
-    is_superuser,
-    is_admin,
-    get_user_organization,
-    get_user_teacher,
-)
-
-# ======================================================================
-# Queryset helpers
-# ======================================================================
-def can_manage_events(user):
-    return is_admin(user) or get_user_teacher(user) is not None
-
-def base_queryset():
-    return Event.objects.select_related("organization")
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
 
 
 def queryset_for_user(user):
     """
     Superusers → all events.
-<<<<<<< HEAD
     Admins     → events in their organization.
     Others     → nothing (parents hit a separate read-only view).
-=======
-    Admins     → only events belonging to their organization.
-    Others     → nothing (parents will hit a separate read-only view).
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
     """
     qs = base_queryset()
 
@@ -89,21 +56,11 @@ def queryset_for_user(user):
 
 def apply_filters(qs, request):
     """
-<<<<<<< HEAD
     ?status=upcoming
     ?published=true|false
     ?event_type=service
     ?year=2026
     ?upcoming=true
-=======
-    Optional query-string filters used by the frontend:
-
-        ?status=upcoming
-        ?published=true|false
-        ?event_type=service
-        ?year=2026
-        ?upcoming=true
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
     """
     status_param = request.query_params.get("status")
     if status_param:
@@ -123,10 +80,6 @@ def apply_filters(qs, request):
 
     upcoming = request.query_params.get("upcoming")
     if upcoming and upcoming.lower() in ("1", "true", "yes"):
-<<<<<<< HEAD
-=======
-        from django.utils import timezone
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
         qs = qs.filter(start_datetime__gte=timezone.now())
 
     return qs
@@ -134,16 +87,9 @@ def apply_filters(qs, request):
 
 def enforce_org_scope(user, data, instance=None):
     """
-<<<<<<< HEAD
     Non-superusers can only write events inside their own organization.
     `data` is the serializer's validated_data; `instance` is the
     existing event on edits.
-=======
-    Ensure a non-superuser can only write events inside their org.
-
-    `data` may contain an `organization` key (from the create/edit
-    serializer). If absent, we fall back to the instance's org.
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
     """
     if is_superuser(user):
         return
@@ -160,7 +106,6 @@ def enforce_org_scope(user, data, instance=None):
 
 
 # ======================================================================
-<<<<<<< HEAD
 # Notification side effects — the ONE place event triggers fire
 # ======================================================================
 
@@ -224,26 +169,12 @@ def safe_notify(callable_, *args, **kwargs):
 
 # ======================================================================
 # List + Create
-=======
-# List + Create  (superuser OR org-admin)
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
 # ======================================================================
 
 class EventListCreateAPIView(APIView):
     """
-<<<<<<< HEAD
     GET  /events/    → list, scoped to the user
     POST /events/    → create (admins only)
-=======
-    GET  /events/
-        Superuser → all events.
-        Admin     → only events in their organization.
-
-    POST /events/
-        Create an event. The organization is injected from the
-        authenticated user for non-superusers; superusers may pass
-        `organization` explicitly.
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
     """
 
     permission_classes = [IsAuthenticated]
@@ -253,33 +184,18 @@ class EventListCreateAPIView(APIView):
     def get(self, request):
         qs = queryset_for_user(request.user)
         qs = apply_filters(qs, request)
-<<<<<<< HEAD
         return Response(
             EventSerializer(qs, many=True, context={"request": request}).data,
             status=status.HTTP_200_OK,
-=======
-
-        serializer = EventSerializer(
-            qs,
-            many=True,
-            context={"request": request},
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
         )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     # ------------------------------------------------------------------
     def post(self, request):
-<<<<<<< HEAD
         if not is_admin(request.user):
             raise PermissionDenied("You do not have permission to create events.")
 
         # Resolve the target org.
-=======
-        if not can_manage_events(request.user):
-            raise PermissionDenied("You do not have permission to create events.")
-
-        # Determine the target organization.
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
         if is_superuser(request.user):
             org = request.data.get("organization") or None
         else:
@@ -292,19 +208,11 @@ class EventListCreateAPIView(APIView):
 
         serializer = EventCreateSerializer(
             data=request.data,
-<<<<<<< HEAD
             context={"request": request, "organization": org},
-=======
-            context={
-                "request": request,
-                "organization": org,
-            },
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
         )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-<<<<<<< HEAD
         enforce_org_scope(request.user, serializer.validated_data)
 
         event = serializer.save()
@@ -325,24 +233,6 @@ class EventListCreateAPIView(APIView):
         return Response(
             EventSerializer(event, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
-=======
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        # Guard: non-superusers can only write inside their own org.
-        enforce_org_scope(request.user, serializer.validated_data)
-
-        event = serializer.save()
-
-        # Record the creator when the model supports it.
-        if hasattr(event, "created_by") and not event.created_by_id:
-            event.created_by = request.user
-            event.save(update_fields=["created_by", "updated_at"])
-
-        response_serializer = EventSerializer(
-            event,
-            context={"request": request},
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
         )
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -352,7 +242,6 @@ class EventListCreateAPIView(APIView):
 # ======================================================================
 
 class EventDetailAPIView(APIView):
-<<<<<<< HEAD
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
@@ -360,31 +249,6 @@ class EventDetailAPIView(APIView):
         # 404 (not 403) when out of scope to avoid leaking existence.
         return get_object_or_404(queryset_for_user(request.user), pk=pk)
 
-=======
-    """
-    GET    /events/<id>/
-    PUT    /events/<id>/
-    PATCH  /events/<id>/
-    DELETE /events/<id>/
-
-    Superusers can manage any event.
-    Admins can only read/manage events inside their organization.
-    """
-
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser, JSONParser]
-
-    # ------------------------------------------------------------------
-    def get_object(self, request, pk):
-        """
-        Fetch an event the current user is allowed to see.
-        Returns 404 (not 403) when out of scope so we don't leak the
-        existence of other organizations' events.
-        """
-        qs = queryset_for_user(request.user)
-        return get_object_or_404(qs, pk=pk)
-
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
     def _require_admin(self, request):
         if not is_admin(request.user):
             raise PermissionDenied("You do not have permission to modify events.")
@@ -392,7 +256,6 @@ class EventDetailAPIView(APIView):
     # ------------------------------------------------------------------
     def get(self, request, pk):
         event = self.get_object(request, pk)
-<<<<<<< HEAD
         return Response(
             EventSerializer(event, context={"request": request}).data,
             status=status.HTTP_200_OK,
@@ -414,32 +277,16 @@ class EventDetailAPIView(APIView):
         old_end = event.end_datetime
         was_published = event.published
         was_cancelled = _is_cancelled(event)
-=======
-        serializer = EventSerializer(
-            event,
-            context={"request": request},
-        )
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    # ------------------------------------------------------------------
-    def put(self, request, pk):
-        self._require_admin(request)
-        event = self.get_object(request, pk)
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
 
         serializer = EventEditSerializer(
             event,
             data=request.data,
-<<<<<<< HEAD
             partial=partial,
-=======
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
             context={"request": request},
         )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-<<<<<<< HEAD
         enforce_org_scope(request.user, serializer.validated_data, event)
 
         event = serializer.save()
@@ -459,46 +306,6 @@ class EventDetailAPIView(APIView):
             status=status.HTTP_200_OK,
         )
 
-=======
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        enforce_org_scope(request.user, serializer.validated_data, event)
-
-        event = serializer.save()
-
-        response_serializer = EventSerializer(
-            event,
-            context={"request": request},
-        )
-        return Response(response_serializer.data, status=status.HTTP_200_OK)
-
-    # ------------------------------------------------------------------
-    def patch(self, request, pk):
-        self._require_admin(request)
-        event = self.get_object(request, pk)
-
-        serializer = EventEditSerializer(
-            event,
-            data=request.data,
-            partial=True,
-            context={"request": request},
-        )
-
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        enforce_org_scope(request.user, serializer.validated_data, event)
-
-        event = serializer.save()
-
-        response_serializer = EventSerializer(
-            event,
-            context={"request": request},
-        )
-        return Response(response_serializer.data, status=status.HTTP_200_OK)
-
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
     # ------------------------------------------------------------------
     def delete(self, request, pk):
         self._require_admin(request)
@@ -512,14 +319,7 @@ class EventDetailAPIView(APIView):
 # ======================================================================
 
 class EventTogglePublishAPIView(APIView):
-<<<<<<< HEAD
     """POST /events/<id>/toggle-publish/"""
-=======
-    """
-    POST /events/<id>/toggle-publish/
-    Frontend: publish / hide chip.
-    """
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
 
     permission_classes = [IsAuthenticated]
 
@@ -528,7 +328,6 @@ class EventTogglePublishAPIView(APIView):
             raise PermissionDenied("You do not have permission to modify events.")
 
         event = get_object_or_404(queryset_for_user(request.user), pk=pk)
-<<<<<<< HEAD
 
         old_start = event.start_datetime
         old_end = event.end_datetime
@@ -591,12 +390,6 @@ class EventCancelAPIView(APIView):
 
         return Response(
             {"id": event.id, "cancelled": True},
-=======
-        published = event.toggle_published()
-
-        return Response(
-            {"id": event.id, "published": published},
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
             status=status.HTTP_200_OK,
         )
     

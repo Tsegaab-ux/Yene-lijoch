@@ -5,18 +5,13 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-<<<<<<< HEAD
 import logging
-=======
-
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
 from .models import MediaItem
 from .serializers import (
     MediaItemSerializer,
     MediaItemCreateSerializer,
     MediaItemEditSerializer,
 )
-<<<<<<< HEAD
 from .services.medias_notification_service import MediasService
 from organizations.utils import (
     is_admin,
@@ -24,58 +19,6 @@ from organizations.utils import (
     get_user_organization
 )
 logger = logging.getLogger(__name__)
-=======
-
-
-# ======================================================================
-# Permission helpers
-# ======================================================================
-
-def is_superuser(user):
-    return bool(user and user.is_authenticated and user.is_superuser)
-
-
-def is_admin(user):
-    """
-    Any staff user is treated as an 'admin'. Swap for a group / role
-    check (e.g. user.groups.filter(name="OrgAdmin").exists()) if you
-    have a dedicated OrgAdmin role.
-    """
-    return bool(user and user.is_authenticated and user.is_staff)
-
-
-def get_user_organization(user):
-    """
-    Return the `Organization` the user belongs to, or None for superusers.
-
-    `request.user` is a Profile (AUTH_USER_MODEL = users.Profile), so the
-    membership is at `user.organization`. If a raw auth.User is passed
-    (e.g. from the admin), fall back to `user.profile.organization`.
-
-    Always unwraps OrganizationMembership → Organization.
-    """
-    if not user or not user.is_authenticated:
-        return None
-    if getattr(user, "is_superuser", False):
-        return None
-
-    # Case A: user is a Profile (the normal case for API requests).
-    membership = getattr(user, "organization", None)
-
-    # Case B: user is an auth.User with a .profile (admin site, shell).
-    if membership is None:
-        profile = getattr(user, "profile", None)
-        if profile:
-            membership = getattr(profile, "organization", None)
-
-    if not membership:
-        return None
-
-    # If it's already an Organization, return it. If it's a membership,
-    # unwrap to the underlying Organization.
-    return getattr(membership, "organization", membership)
-
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
 
 # ======================================================================
 # Queryset helpers
@@ -228,23 +171,16 @@ class MediaItemListCreateAPIView(APIView):
         # Inject the resolved organization.
         media = serializer.save(organization=org) if org else serializer.save()
 
-<<<<<<< HEAD
-=======
-        # Record the creator when the model supports it.
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
         if hasattr(media, "created_by") and not media.created_by_id:
             media.created_by = request.user
             media.save(update_fields=["created_by", "updated_at"])
 
-<<<<<<< HEAD
         if media.published:
             try:
                 MediasService.notify_new_media(media, actor=request.user)
             except Exception:
                 logger.exception("Media notification fan-out failed")
 
-=======
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
         response_serializer = MediaItemSerializer(
             media,
             context={"request": request},
@@ -370,14 +306,11 @@ class MediaItemTogglePublishAPIView(APIView):
         media = get_object_or_404(queryset_for_user(request.user), pk=pk)
         published = media.toggle_published()
 
-<<<<<<< HEAD
         if media.published:
             MediasService.notify_new_message(
                 media, actor=request.user
             )
 
-=======
->>>>>>> e131497ff92bbc8590f4d71e23171a74287196ea
         return Response(
             {"id": media.id, "published": published},
             status=status.HTTP_200_OK,
